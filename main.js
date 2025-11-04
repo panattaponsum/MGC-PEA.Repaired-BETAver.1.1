@@ -37,7 +37,9 @@ const sites = {
     "betong": {
         name: "ไมโครกริดเบตง อ.เบตง จ.ยะลา",
         devices: [
-            "Operator HMI 24", "Operator HMI 27", "ETH Switch 1", "ETH Switch 2", "ETH Switch 3", "ETH Switch 4", "ETH Switch 6", "ETH Switch 7"
+            "Operator HMI 24", "Operator HMI 27", "ETH Switch 1", "ETH Switch 2", "ETH Switch 3", "ETH Switch 4", "ETH Switch 6", "ETH Switch 7","RTU SVG",
+"RTU Substation","eMC-G-Controller","eMC-N-Controller INC1","eMC-N-Controller BAAN3","eMC-N-Controller BAAN4","Synnchrotact INC1","Synnchrotact OUT5","Synnchrotact OUT1","ADMS-1",
+"ADMS-2","RTU Gateway 1","RTU Gateway 2","Firewall 1","Firewall 2","Firewall 3","Security HMI","GPS"
         ]
     }
 };
@@ -1090,4 +1092,5 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
     
+
 };
