@@ -270,18 +270,16 @@ window.saveData = async function() {
     const fixedDate = document.getElementById('fixedDate').value;
     const description = document.getElementById('description').value.trim();
 
-    // --- 2. Asset Registration Data (ใช้ ?.value เพื่อความปลอดภัย) ---
+    // --- 2. Asset Registration Data ---
     const assetId = document.getElementById('assetId')?.value || '';
     const manufacturer = document.getElementById('manufacturer')?.value || '';
     const model = document.getElementById('model')?.value || '';
     const warrantyStartDate = document.getElementById('warrantyStartDate')?.value || '';
 
     const installDate = document.getElementById('installDate')?.value || '';
-    // ใช้ parseInt และ fallback เป็น 0 อย่างปลอดภัย
     const warrantyYears = parseInt(document.getElementById('warrantyYears')?.value || 0) || 0; 
-    // ❌ ไม่มี const eolYears อีกต่อไป
 
-    // --- 3. Validation (โค้ดเดิมของคุณ) ---
+    // --- 3. Validation ---
     const now = new Date();
     now.setHours(0, 0, 0, 0); 
     
@@ -337,7 +335,7 @@ window.saveData = async function() {
          return false;
     }
 
-    // VALIDATION: บล็อกการบันทึก 'ชำรุด' ซ้ำซ้อน (จากโค้ดเดิมของคุณ)
+    // VALIDATION: บล็อกการบันทึก 'ชำรุด' ซ้ำซ้อน
     let records = await getDeviceRecords(currentSiteKey, currentDevice);
 
     if (editIndex < 0 && statusVal === 'down') {
@@ -351,15 +349,15 @@ window.saveData = async function() {
         }
     }
 
-    // --- 4. Save Asset Data (การแก้ไขที่สำคัญ) ---
-   const newAssetData = {
+    // --- 4. Save Asset Data ---
+    const newAssetData = {
         assetId: assetId,
         manufacturer: manufacturer,
         model: model,
         installDate: installDate,
         warrantyStartDate: warrantyStartDate,
         warrantyYears: warrantyYears,
-        // ❌ ลบ eolYears: eolYears ออก
+        // ไม่มี eolYears แล้ว
     };
 
     try {
@@ -379,7 +377,7 @@ window.saveData = async function() {
     }
 
 
-    // --- 5. Save History Record (ต้องเป็นโค้ดเดิมของคุณที่ถูกต้อง) ---
+    // --- 5. Save History Record ---
     const baseRec = {
         user: document.getElementById('userName').value || "ไม่ระบุ",
         status: statusVal,
@@ -391,7 +389,7 @@ window.saveData = async function() {
     };
 
     if (editIndex >= 0) {
-        // ... โค้ดการแก้ไขเดิม ...
+        // การแก้ไข: นำข้อมูลเดิมมาทับข้อมูลใหม่
         const originalRecord = records[editIndex];
 
         records[editIndex] = {
@@ -421,15 +419,6 @@ window.saveData = async function() {
     await loadHistory();
     window.updateDeviceSummary();
     window.updateDeviceStatusOverlays(currentSiteKey);
-    alert("บันทึกเรียบร้อย");
-    return true;
-};
- window.closeForm(); // 💡 ต้องเรียกปิดฟอร์มก่อนแจ้งเตือน
-    clearForm();
-    await loadHistory();
-    window.updateDeviceSummary();
-    window.updateDeviceStatusOverlays(currentSiteKey);
-    // 💡 หากมี SweetAlert2 ให้ใช้ Swal.fire
     alert("บันทึกเรียบร้อย");
     return true;
 };
@@ -1305,6 +1294,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
