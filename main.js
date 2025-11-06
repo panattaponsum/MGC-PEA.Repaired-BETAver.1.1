@@ -550,12 +550,7 @@ window.exportAllDataExcel = async function() {
     Swal.fire('ส่งออกข้อมูลสำเร็จ', `ไฟล์ ${filename} ถูกดาวน์โหลดแล้ว`, 'success');
 };
 
-
-// =================================================================================
-// **ฟังก์ชันสำหรับ Import (นำเข้า) ข้อมูล**
-// =================================================================================
-
-window.importData = function() {
+window.importSiteDataFromExcel = function() {
     if (typeof XLSX === 'undefined') {
         Swal.fire('ข้อผิดพลาด', 'ไม่พบไลบรารี SheetJS (XLSX) กรุณาตรวจสอบการนำเข้าไฟล์ script', 'error');
         return;
@@ -581,6 +576,7 @@ window.importData = function() {
         });
 
         const reader = new FileReader();
+        
         reader.onload = async (event) => {
             try {
                 const data = new Uint8Array(event.target.result);
@@ -710,14 +706,11 @@ window.importData = function() {
             console.error("File Read Error:", error);
             Swal.fire('ข้อผิดพลาด', 'ไม่สามารถอ่านไฟล์ได้', 'error');
         };
-        
-        fileInput.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(file);
     };
 
     fileInput.click();
 };
-
-// **ฟังก์ชันเสริมที่จำเป็นเพื่อป้องกัน ReferenceError (จากปุ่มใน HTML)**
 window.clearCurrentDevice = async function() {
     if (!currentDevice) return;
     
@@ -1312,6 +1305,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
