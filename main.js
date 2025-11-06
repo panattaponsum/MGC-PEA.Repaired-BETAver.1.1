@@ -197,6 +197,8 @@ async function loadAssetData(deviceName) {
         return {};
     }
 }
+// ใน main (3).js (ค้นหาและแทนที่ฟังก์ชันนี้ทั้งหมด)
+
 window.openForm = async function(deviceName) {
     currentDevice = deviceName; 
     editIndex = -1;
@@ -205,43 +207,48 @@ window.openForm = async function(deviceName) {
     document.getElementById('overlay').style.display = 'block';
     document.getElementById('formModal').style.display = 'block';
     document.getElementById('editHint').classList.add('hidden');
-   
+    
     // 1. ล้างฟอร์มทั้งหมดก่อน
     clearForm(); 
 
-    // 2. 💡 NEW: โหลดข้อมูลทะเบียนทรัพย์สิน
+    // 2. โหลดข้อมูลทะเบียนทรัพย์สิน
     const assetData = await loadAssetData(deviceName);
     
-    // 3. ตั้งค่าฟิลด์ Asset Registration
-	document.getElementById('assetId').value = assetData.assetId || ''; // NEW
-    document.getElementById('manufacturer').value = assetData.manufacturer || ''; // NEW
-    document.getElementById('model').value = assetData.model || ''; // NEW
-    // ข้อมูลเหล่านี้ถูกดึงจาก Firestore และตั้งค่าเฉพาะฟิลด์ใหม่เท่านั้น
-    document.getElementById('installDate').value = assetData.installDate || '';
-    document.getElementById('warrantyStartDate').value = assetData.warrantyStartDate || ''; // NEW
-    
+    // 3. ตั้งค่าฟิลด์ Asset Registration (รวมฟิลด์ใหม่ที่เพิ่มเข้าไป)
+    document.getElementById('assetId')?.value = assetData.assetId || ''; // NEW
+    document.getElementById('manufacturer')?.value = assetData.manufacturer || ''; // NEW
+    document.getElementById('model')?.value = assetData.model || ''; // NEW
+    document.getElementById('warrantyStartDate')?.value = assetData.warrantyStartDate || ''; // NEW
+
+    document.getElementById('installDate')?.value = assetData.installDate || '';
     // ตั้งค่า warrantyYears ให้เป็น 0 หากไม่มีข้อมูล เพื่อแก้ Warning
-    document.getElementById('warrantyYears').value = assetData.warrantyYears !== undefined ? assetData.warrantyYears : 0;
-    
-    
-    // 4. โหลดประวัติการชำรุด (โค้ดเดิม)
+    document.getElementById('warrantyYears')?.value = assetData.warrantyYears !== undefined ? assetData.warrantyYears : 0;
+        
+    // 4. โหลดประวัติการชำรุด
     await loadHistory();
 }
-
 window.closeForm = function() {
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('formModal').style.display = 'none';
 }
 
 function clearForm() {
+    // History Fields
     document.getElementById('userName').value = '';
     document.getElementById('status').value = 'ok';
     document.getElementById('brokenDate').value = '';
     document.getElementById('fixedDate').value = '';
     document.getElementById('description').value = '';
-	document.getElementById('installDate').value = '';
-    document.getElementById('warrantyYears').value = ''; 
-    document.getElementById('eolYears').value = '';
+
+    // Asset Fields (ใช้ ?.value เพื่อความปลอดภัย ถ้า ID ยังไม่มีใน HTML)
+    document.getElementById('assetId')?.value = ''; 
+    document.getElementById('manufacturer')?.value = '';
+    document.getElementById('model')?.value = '';
+	document.getElementById('installDate')?.value = '';
+    document.getElementById('warrantyStartDate')?.value = '';
+    document.getElementById('warrantyYears')?.value = '0'; // ตั้งค่าเป็น 0 เพื่อแก้ Warning
+
+    // ❌ ลบ document.getElementById('eolYears').value = ''; ออก
 }
 
 function isValidDate(str) {
@@ -256,14 +263,25 @@ window.saveData = async function() {
         return false;
     }
 
+    // --- 1. History Data ---
+    const userName = document.getElementById('userName').value.trim();
     const statusVal = document.getElementById('status').value;
     const brokenDate = document.getElementById('brokenDate').value;
     const fixedDate = document.getElementById('fixedDate').value;
+    const description = document.getElementById('description').value.trim();
 
-	const installDate = document.getElementById('installDate').value;
-    const warrantyYears = parseInt(document.getElementById('warrantyYears').value) || 0;
-    const eolYears = parseInt(document.getElementById('eolYears').value) || 0;
-    // VALIDATION: ห้ามวันที่ชำรุด/ซ่อมแซมอยู่หลังวันที่ปัจจุบัน
+    // --- 2. Asset Registration Data (ใช้ ?.value เพื่อความปลอดภัย) ---
+    const assetId = document.getElementById('assetId')?.value || '';
+    const manufacturer = document.getElementById('manufacturer')?.value || '';
+    const model = document.getElementById('model')?.value || '';
+    const warrantyStartDate = document.getElementById('warrantyStartDate')?.value || '';
+
+    const installDate = document.getElementById('installDate')?.value || '';
+    // ใช้ parseInt และ fallback เป็น 0 อย่างปลอดภัย
+    const warrantyYears = parseInt(document.getElementById('warrantyYears')?.value || 0) || 0; 
+    // ❌ ไม่มี const eolYears อีกต่อไป
+
+    // --- 3. Validation (โค้ดเดิมของคุณ) ---
     const now = new Date();
     now.setHours(0, 0, 0, 0); 
     
@@ -295,7 +313,7 @@ window.saveData = async function() {
             return false;
         }
     }
-
+    
     if (statusVal === 'ok') {
         if (!isValidDate(brokenDate)) {
             alert("กรุณาเลือกวันที่ชำรุด");
@@ -309,21 +327,19 @@ window.saveData = async function() {
             alert("วันที่ซ่อมแซมต้องหลังวันที่ชำรุด");
             return false;
         }
-    }
-
+    } 
     if (fixedDate && statusVal !== 'ok') {
         alert("ห้ามใส่วันที่ซ่อมแซม ถ้าไม่ได้เลือกสถานะ 'ใช้งานได้'");
         return false;
     }
-
-    if (brokenDate && !(statusVal === 'down' || statusVal === 'ok')) {
-        alert("ห้ามใส่วันที่ชำรุด ถ้าไม่ได้เลือกสถานะ 'ชำรุด' หรือ 'ใช้งานได้'");
-        return false;
+    if (brokenDate && !(statusVal === 'ok' || statusVal === 'down')) {
+         alert("ต้องเลือกสถานะ 'ชำรุด' หรือ 'ใช้งานได้' เมื่อใส่วันที่ชำรุด");
+         return false;
     }
-    
+
+    // VALIDATION: บล็อกการบันทึก 'ชำรุด' ซ้ำซ้อน (จากโค้ดเดิมของคุณ)
     let records = await getDeviceRecords(currentSiteKey, currentDevice);
 
-    // VALIDATION: บล็อกการบันทึก 'ชำรุด' ซ้ำซ้อน
     if (editIndex < 0 && statusVal === 'down') {
         if (records.length > 0) {
             const latestRecord = records.reduce((a, b) => b.ts > a.ts ? b : a, records[0]);
@@ -334,24 +350,36 @@ window.saveData = async function() {
             }
         }
     }
-    if (installDate) {
-        const newAssetData = {
-            installDate: installDate,
-            warrantyYears: warrantyYears,
-            eolYears: eolYears
-        };
-        
-        // บันทึกไปยัง Collection ใหม่ชื่อ 'asset_registration'
-        const assetDocRef = db.collection('asset_registration').doc(currentSiteKey);
-        
-        // ใช้ set() กับ Merge เพื่ออัปเดตเฉพาะอุปกรณ์นี้
-        await assetDocRef.set({
-            [currentDevice]: newAssetData 
-        }, { merge: true });
 
+    // --- 4. Save Asset Data (การแก้ไขที่สำคัญ) ---
+    const newAssetData = {
+        assetId: assetId,
+        manufacturer: manufacturer,
+        model: model,
+        installDate: installDate,
+        warrantyStartDate: warrantyStartDate,
+        warrantyYears: warrantyYears,
+        // ❌ ลบ eolYears: eolYears ออกจาก Object
+    };
+
+    try {
+        const assetDocRef = db.collection('asset_registration').doc(currentSiteKey);
+        const doc = await assetDocRef.get();
+        const allAssets = doc.exists ? doc.data() : {};
+        
+        allAssets[currentDevice] = newAssetData;
+
+        // บันทึกกลับไปใน Document
+        await assetDocRef.set(allAssets); 
         console.log(`Asset registration data saved for ${currentDevice}`);
+    } catch (error) {
+        console.error("Error saving asset registration data:", error);
+        alert('ไม่สามารถบันทึกข้อมูลทะเบียนทรัพย์สินได้: ' + error.message);
+        return false;
     }
 
+
+    // --- 5. Save History Record (โค้ดเดิมของคุณ) ---
     const baseRec = {
         user: document.getElementById('userName').value || "ไม่ระบุ",
         status: statusVal,
@@ -359,7 +387,7 @@ window.saveData = async function() {
         fixedDate,
         description: document.getElementById('description').value,
         ts: Date.now(),
-        counted: (statusVal === 'down') // ตั้งค่าเริ่มต้น
+        counted: (statusVal === 'down')
     };
 
     if (editIndex >= 0) {
@@ -374,10 +402,8 @@ window.saveData = async function() {
 
         // ตรรกะ counted เมื่อแก้ไข
         if (statusVal === 'ok') {
-            // ถ้าสถานะใหม่เป็น 'ok' (ซ่อมแซม) ให้คงค่า counted เป็น true ถ้ามันเคยถูกนับแล้ว
             records[editIndex].counted = originalRecord.counted || false; 
         } else {
-            // ถ้าสถานะใหม่เป็น 'down' ให้ counted เป็น true เสมอ
             records[editIndex].counted = true;
         }
 
@@ -387,16 +413,19 @@ window.saveData = async function() {
         // การเพิ่มรายการใหม่:
         records.push(baseRec);
     }
+    
     await saveDeviceRecords(currentSiteKey, currentDevice, records);
+    
+    // อัปเดต UI
+    window.closeForm(); // 💡 ต้องเรียกปิดฟอร์มก่อนแจ้งเตือน
     clearForm();
     await loadHistory();
-    window.updateDeviceSummary(); 
-    window.updateDeviceStatusOverlays(currentSiteKey); 
-    // 💡 หากมี SweetAlert2 ให้ใช้ Swal.fire("บันทึกเรียบร้อย", "", "success");
+    window.updateDeviceSummary();
+    window.updateDeviceStatusOverlays(currentSiteKey);
+    // 💡 หากมี SweetAlert2 ให้ใช้ Swal.fire
     alert("บันทึกเรียบร้อย");
     return true;
 };
-
 window.clearCurrentDevice = async function() {
     if (!currentDevice) return;
     if (confirm(`ลบข้อมูลทั้งหมดของ ${currentDevice}?`)) {
@@ -1269,6 +1298,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
