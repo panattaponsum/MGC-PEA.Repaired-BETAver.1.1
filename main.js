@@ -12,6 +12,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig); 
 const db = firebase.firestore();
 const auth = firebase.auth();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 db.settings({
   // บังคับให้ใช้ Long Polling แทน QUIC เพื่อหลีกเลี่ยงปัญหาเครือข่าย/ไฟร์วอลล์
   experimentalForceLongPolling: true,
@@ -1445,6 +1446,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
