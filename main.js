@@ -13,6 +13,30 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+auth.getRedirectResult()
+    .then((result) => {
+        // หากไม่มี result หรือไม่มี user แปลว่าไม่ใช่การกลับมาจากการล็อคอินด้วย Redirect 
+        if (!result || !result.user) {
+            return;
+        }
+
+        // หากล็อคอินสำเร็จ: auth.onAuthStateChanged จะจัดการ UI ต่อไป
+        console.log("Redirect login successful:", result.user.email);
+    })
+    .catch((error) => {
+        // หากเกิดข้อผิดพลาดระหว่างการ Redirect
+        console.error("Redirect login failed:", error);
+        // แสดงข้อความแจ้งเตือน
+        Swal.fire('ข้อผิดพลาดการล็อคอิน', 'กรุณาลองอีกครั้ง: ' + error.message, 'error');
+    });
+auth.onAuthStateChanged(function(user) {
+ 
+    updateUIForAuthState(user); 
+
+    if (user) {
+    } else {       
+    }
+});
 db.settings({
   // บังคับให้ใช้ Long Polling แทน QUIC เพื่อหลีกเลี่ยงปัญหาเครือข่าย/ไฟร์วอลล์
   experimentalForceLongPolling: true,
@@ -226,14 +250,6 @@ function requireAuth() {
     return true;
 }
 
-auth.onAuthStateChanged(function(user) {
- 
-    updateUIForAuthState(user); 
-
-    if (user) {
-    } else {       
-    }
-});
 
 function escapeHtml(text) {
     return String(text || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m] || m)).replace(/\n/g, '<br>');
@@ -1504,6 +1520,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
