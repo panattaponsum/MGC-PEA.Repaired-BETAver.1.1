@@ -110,7 +110,6 @@ h1,h2,h3,th {
         box-shadow: 0 0 20px var(--bad);
     }
 }
-/* 💥 END NEW CSS 💥 */
 
 </style>
 </head>
@@ -137,6 +136,12 @@ h1,h2,h3,th {
         <option value="betong">ไมโครกริดอำเภอเบตง</option>
       </select>
     </div>
+
+	  <div id="authStatus" class="flex items-center gap-3 ml-auto mr-3">
+        <span id="userNameDisplay" class="text-sm text-gray-300 hidden"></span>
+        <button id="authButton" class="btn btn-brand" onclick="handleAuthAction()">เข้าสู่ระบบด้วย Google</button>
+    </div>
+
     <span class="spacer"></span>
    
     <button class="btn btn-rgb" onclick="showSummary()">📊 สรุปผล</button>
@@ -197,7 +202,7 @@ h1,h2,h3,th {
       <area alt="PCS-9893(2nd)" coords="207,432,344,460" shape="rect" href="" onclick="openForm('PCS-9893(2nd)'); return false;">
       <area alt="HMI Display 1" coords="689,283,736,338" shape="rect" href="" onclick="openForm('HMI Display 1'); return false;">
       <area alt="HMI Display 2" coords="574,283,621,336" shape="rect" href="" onclick="openForm('HMI Display 2'); return false;">
-  <area alt="HMI Main 1" coords="785,283,829,336" shape="rect" href="" onclick="openForm('HMI Main 1'); return false;"> 
+  <area alt="HMI  1" coords="785,283,829,336" shape="rect" href="" onclick="openForm('HMI  1'); return false;"> 
  <area alt="Cyber Security Manager" coords="967,283,1007,336" shape="rect" href="" onclick="openForm('Cyber Security Manager'); return false;">
       <area alt="Scada 1" coords="1095,283,1138,336" shape="rect" href="" onclick="openForm('Scada 1'); return false;">
       <area alt="Scada 2" coords="1202,280,1249,338" shape="rect" href="" onclick="openForm('Scada 2'); return false;">
@@ -331,84 +336,88 @@ h1,h2,h3,th {
     <canvas id="chart" height="100"></canvas>
   </div>
 </div>
+</main>
+<div id="overlay"></div>
 
-<div id="overlay" onclick="closeForm()"></div>
 <div id="formModal">
-<div class="row mb-2">
-<h3 id="formTitle" class="m-0">บันทึกข้อมูล</h3>
-<span class="spacer"></span>
-<button class="btn btn-ghost" onclick="closeForm()">✖ ปิด</button>
-</div>
-	<div class="sm:col-span-2 border-b border-white/10 pb-2 mb-2">
-  <h4 class="text-sm font-semibold text-gray-400">ข้อมูลทะเบียนทรัพย์สิน (Asset Registration)</h4>
-</div>
-	
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-	 <div>
-        <label>รหัสอุปกรณ์</label>
-        <input type="text" id="assetId" class="w-full"/> </div>
+  <h2 id="formTitle" class="text-xl font-bold mb-3">บันทึกข้อมูล</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
     <div>
-        <label>โรงงานผู้ผลิต</label>
-        <input type="text" id="manufacturer" class="w-full"/> </div>
-    <div>
-        <label>โมเดล</label>
-        <input type="text" id="model" class="w-full"/> </div>
-	<div>
-        <label>ระยะเวลารับประกัน (ปี)</label>
-        <input type="number" id="warrantyYears" value="0" min="0" class="w-full"/> 
-    </div>
-	<div>
-        <label>เริ่มต้นใช้งาน</label>
-        <input type="date" id="installDate" class="w-full"/>
+      <label>ผู้บันทึก (ล็อคอิน)</label>
+      <input type="text" id="editorEmailDisplay" class="w-full" disabled value="กรุณาล็อคอิน"/>
     </div>
     <div>
-        <label>วันเริ่มต้นรับประกัน</label>
-        <input type="date" id="warrantyStartDate" class="w-full"/> </div>
-  <div>
-    <label>ชื่อผู้บันทึก</label>
-    <input type="text" id="userName" class="w-full"/>
+      <label>สถานะ</label>
+      <select id="status" class="w-full">
+        <option value="ok">✅ ใช้งานได้</option>
+        <option value="down">❎ ชำรุด</option>
+      </select>
+    </div>
+    <div>
+      <label>วันที่ชำรุด</label>
+      <input type="date" id="brokenDate" class="w-full"/>
+    </div>
+    <div>
+      <label>วันที่ซ่อมแซม</label>
+      <input type="date" id="fixedDate" class="w-full"/>
+    </div>
+    <div class="sm:col-span-2">
+      <label>รายละเอียด</label>
+      <textarea id="description" rows="3" class="w-full"></textarea>
+    </div>
   </div>
-  <div>
-    <label>สถานะ</label>
-    <select id="status" class="w-full">
-      <option value="ok">✅ ใช้งานได้</option>
-      <option value="down">❎ ชำรุด</option>
-    </select>
+  <hr class="border-white/8 mt-3 mb-2">
+  <h3 class="font-semibold mb-2">ทะเบียนทรัพย์สิน (Asset Registration)</h3>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label>Asset ID</label>
+      <input type="text" id="assetId" class="w-full"/>
+    </div>
+    <div>
+      <label>ผู้ผลิต (Manufacturer)</label>
+      <input type="text" id="manufacturer" class="w-full"/>
+    </div>
+    <div>
+      <label>รุ่น (Model)</label>
+      <input type="text" id="model" class="w-full"/>
+    </div>
+    <div>
+      <label>วันที่ติดตั้ง</label>
+      <input type="date" id="installDate" class="w-full"/>
+    </div>
+    <div>
+      <label>วันที่เริ่มรับประกัน</label>
+      <input type="date" id="warrantyStartDate" class="w-full"/>
+    </div>
+    <div>
+      <label>จำนวนปีรับประกัน</label>
+      <input type="number" id="warrantyYears" class="w-full" min="0" value="0"/>
+    </div>
   </div>
-  <div>
-    <label>วันที่ชำรุด</label>
-    <input type="date" id="brokenDate" class="w-full"/>
+  <div class="row mt-3">
+    <button class="btn btn-brand" onclick="saveData()">💾 บันทึก</button>
+    <button class="btn btn-warning" onclick="clearCurrentDevice()">🗑️ ล้างข้อมูลอุปกรณ์นี้</button>
+    <span class="spacer"></span>
+    <div id="editHint" class="muted hidden">กำลังแก้ไขรายการเดิม…</div>
   </div>
-  <div>
-    <label>วันที่ซ่อมแซม</label>
-    <input type="date" id="fixedDate" class="w-full"/>
-  </div>
-  <div class="sm:col-span-2">
-    <label>รายละเอียด</label>
-    <textarea id="description" rows="3" class="w-full"></textarea>
-  </div>
+  <hr class="border-white/8 mt-3 mb-2">
+  <h3 class="mt-2 mb-1">📜 ประวัติ</h3>
+  <div id="historySection"></div>
 </div>
-<div class="row mt-3">
-<button class="btn btn-brand" onclick="saveData()">💾 บันทึก</button>
-<button class="btn btn-warning" onclick="clearCurrentDevice()">🗑️ ล้างข้อมูลอุปกรณ์นี้</button>
-<span class="spacer"></span>
-<div id="editHint" class="muted hidden">กำลังแก้ไขรายการเดิม…</div>
-</div>
-<hr class="border-white/8 mt-3 mb-2">
-<h3 class="mt-2 mb-1">📜 ประวัติ</h3>
-<div id="historySection"></div>
-</div>
+
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://unpkg.com/image-map-resizer@1.0.10/js/imageMapResizer.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
 <script src="main.js"></script>
 </body>
 
 </html>
+
 
 
 
