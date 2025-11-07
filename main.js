@@ -9,7 +9,6 @@ const firebaseConfig = {
     measurementId: "G-L45B835SV4"
 };
 
-// Initialize Firebase (ใช้ชื่อฟังก์ชัน Global ที่ถูกโหลดมา)
 firebase.initializeApp(firebaseConfig); 
 const db = firebase.firestore();
 db.settings({
@@ -53,23 +52,107 @@ let currentDevice = null, editIndex = -1, chartInstance = null;
 let currentPage = 1;
 const pageSize = 7; // 💡 Note: This is overridden by 10 in updateDeviceSummary, kept for consistency
 
-/**
- * Helper function to escape HTML characters
- */
+// 💥 START: NEW AUTHENTICATION STATE MANAGEMENT 💥
+let isAuthenticated = false;
+let currentUser = null; // Store user object
+
+function updateUIForAuthState(user) {
+    const authButton = document.getElementById('authButton');
+    const userNameDisplay = document.getElementById('userNameDisplay');
+    // ปุ่มฟังก์ชัน
+    const summaryButton = document.getElementById('summaryButton');
+    const exportButton = document.getElementById('exportButton');
+    const importButton = document.getElementById('importButton');
+    const clearButton = document.getElementById('clearButton');
+
+    if (user) {
+        isAuthenticated = true;
+        currentUser = user;
+        const email = user.email || user.displayName || 'ไม่ระบุอีเมล';
+
+        authButton.textContent = 'ออกจากระบบ';
+        authButton.classList.remove('btn-brand');
+        authButton.classList.add('btn-ghost');
+        
+        userNameDisplay.textContent = `ยินดีต้อนรับ: ${email}`;
+        userNameDisplay.classList.remove('hidden');
+
+        // แสดงปุ่มฟังก์ชันทั้งหมดเมื่อล็อคอินแล้ว
+        summaryButton.classList.remove('hidden');
+        exportButton.classList.remove('hidden');
+        importButton.classList.remove('hidden');
+        clearButton.classList.remove('hidden');
+        
+        // อัปเดตอีเมลผู้บันทึกในฟอร์ม (หากเปิดอยู่)
+        if (document.getElementById('editorEmailDisplay')) {
+            document.getElementById('editorEmailDisplay').value = email;
+        }
+
+    } else {
+        isAuthenticated = false;
+        currentUser = null;
+
+        authButton.textContent = 'เข้าสู่ระบบด้วย Google';
+        authButton.classList.add('btn-brand');
+        authButton.classList.remove('btn-ghost');
+        
+        userNameDisplay.classList.add('hidden');
+
+        // ซ่อนปุ่มฟังก์ชันทั้งหมดเมื่อยังไม่ล็อคอิน
+        summaryButton.classList.add('hidden');
+        exportButton.classList.add('hidden');
+        importButton.classList.add('hidden');
+        clearButton.classList.add('hidden');
+
+        // อัปเดตอีเมลผู้บันทึกในฟอร์ม
+        if (document.getElementById('editorEmailDisplay')) {
+            document.getElementById('editorEmailDisplay').value = 'กรุณาล็อคอิน';
+        }
+
+        // ปิดฟอร์มบันทึกหากเปิดอยู่เมื่อออกจากระบบ
+        window.closeForm(); 
+    }
+    // อัปเดตข้อมูลสรุป (อาจจะแสดงข้อมูลว่างถ้าไม่มีสิทธิ์)
+    if (typeof window.updateDeviceSummary === 'function') {
+        window.updateDeviceSummary();
+    }
+}
+
+// Global function to handle login/logout action
+window.handleAuthAction = function() {
+    if (isAuthenticated) {
+        auth.signOut();
+    } else {
+        // ใช้ Google Sign-In
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(error => {
+            console.error("Login failed:", error);
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้: ' + error.message, 'error');
+        });
+    }
+};
+
+// ฟังก์ชันบังคับตรวจสอบสิทธิ์
+function requireAuth() {
+    if (!isAuthenticated) {
+        Swal.fire('🔒 ล็อคอินก่อน', 'กรุณาล็อคอินเพื่อเข้าสู่โหมดบันทึก/แก้ไขข้อมูล', 'warning');
+        return false;
+    }
+    return true;
+}
+
+// ฟังการเปลี่ยนแปลงสถานะ Authentication
+auth.onAuthStateChanged(updateUIForAuthState);
+// 💥 END: NEW AUTHENTICATION STATE MANAGEMENT 💥
+
 function escapeHtml(text) {
     return String(text || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m] || m)).replace(/\n/g, '<br>');
 }
 
-/**
- * Returns the Firestore Collection reference for devices in the current site.
- */
 function getSiteCollection(siteKey) {
     return db.collection(`sites`).doc(siteKey).collection(`devices`);
 }
 
-/**
- * Fetches and processes records for a specific device.
- */
 async function getDeviceRecords(siteKey, device) {
     const docRef = getSiteCollection(siteKey).doc(device);
     const snap = await docRef.get();
@@ -81,9 +164,6 @@ async function getDeviceRecords(siteKey, device) {
     return recs;
 }
 
-/**
- * Saves the updated records array back to Firestore, calculating downCount and currentStatus.
- */
 async function saveDeviceRecords(siteKey, device, records) {
     // Ensure all records have 'counted' property before saving
     for (const r of records) {
@@ -110,19 +190,10 @@ async function saveDeviceRecords(siteKey, device, records) {
     });
 }
 
-/**
- * Fetches all device documents for a given site.
- */
 async function getAllDevicesDocs(siteKey) {
     return await getSiteCollection(siteKey).get();
 }
 
-/**
- * Calculates the difference between two dates in full days.
- * @param {string} dateString1 - Start date string (YYYY-MM-DD).
- * @param {string} [dateString2] - End date string (YYYY-MM-DD). If null/undefined, uses today.
- * @returns {number} The number of full days.
- */
 function calculateDaysDifference(dateString1, dateString2) {
     if (!dateString1) return 0;
     if (isNaN(new Date(dateString1).getTime())) return 0;
@@ -144,9 +215,6 @@ function calculateDaysDifference(dateString1, dateString2) {
     return diffDays;
 }
 
-/**
- * Formats the number of days into an approximate duration (Year, Month, Day).
- */
 function formatDuration(days) {
     if (days <= 0) return '0 วัน';
     const YEARS_IN_DAYS = 365.25; 
@@ -174,15 +242,6 @@ function formatDuration(days) {
     
     return parts.join(' ');
 }
-
-
-// Firebase config (สมมติว่าคุณมีโค้ด Firebase Initialization อยู่แล้ว)
-// ...
-// const db = firebase.firestore();
-// const sites = { ... };
-// let currentSiteKey = '...';
-// ...
-
 async function loadAssetData(deviceName) {
     try {
         const assetDocRef = db.collection('asset_registration').doc(currentSiteKey);
@@ -199,10 +258,6 @@ async function loadAssetData(deviceName) {
         return {};
     }
 }
-
-// =================================================================================
-// **ฟังก์ชันเสริมสำหรับแปลงวันที่ (กำหนดบน window เพื่อแก้ ReferenceError)**
-// =================================================================================
 
 // ฟังก์ชันเสริมสำหรับแปลง Timestamp หรือ Object วันที่เป็น yyyy-MM-dd
 window.formatDateToInput = function(dateInput) {
@@ -238,11 +293,12 @@ window.convertTimestampToDateTime = function(timestamp) {
     return `${y}-${mo}-${d} ${h}:${mi}:${s}`;
 }
 
-// =================================================================================
-// **ฟังก์ชันหลักที่เหลือ (Open, Close, Clear, Save)**
-// =================================================================================
-
 window.openForm = async function(deviceName) {
+    // 💡 MODIFICATION 1: บังคับล็อคอินก่อนเปิดฟอร์ม
+    if (!requireAuth()) {
+        return;
+    }
+
     currentDevice = deviceName; 
     editIndex = -1;
     
@@ -252,6 +308,13 @@ window.openForm = async function(deviceName) {
     document.getElementById('editHint').classList.add('hidden');
     
     clearForm(); 
+
+    // 💡 MODIFICATION 2: แสดงอีเมลผู้บันทึกจาก Auth
+    if (currentUser) {
+        document.getElementById('editorEmailDisplay').value = currentUser.email || currentUser.displayName || 'ไม่ระบุ';
+    } else {
+         document.getElementById('editorEmailDisplay').value = 'กรุณาล็อคอิน';
+    }
 
     const assetData = await loadAssetData(deviceName);
     
@@ -274,7 +337,7 @@ window.closeForm = function() {
 
 function clearForm() {
     // History Fields
-    document.getElementById('userName').value = '';
+    // 💡 REMOVED: document.getElementById('userName').value = '';
     document.getElementById('status').value = 'ok';
     document.getElementById('brokenDate').value = ''; 
     document.getElementById('fixedDate').value = ''; 
@@ -295,12 +358,20 @@ function isValidDate(str) {
     return d instanceof Date && !isNaN(d); 
 }
 
+
 window.saveData = async function() {
+    // 💡 MODIFICATION 3: บังคับล็อคอินและดึงข้อมูลผู้แก้ไข
+    if (!requireAuth()) {
+        return false;
+    }
+    const editorEmail = currentUser.email || currentUser.displayName || 'ไม่ระบุ';
+    const editorUID = currentUser.uid;
+    // 💡 END MODIFICATION 3
+
     if (!currentDevice) {
         alert("กรุณาเลือกอุปกรณ์");
         return false;
     }
-
     // --- 1. History Data ---
     const userName = document.getElementById('userName').value.trim();
     const statusVal = document.getElementById('status').value;
@@ -414,8 +485,11 @@ window.saveData = async function() {
 
 
     // --- 5. Save History Record ---
-    const baseRec = {
-        user: document.getElementById('userName').value || "ไม่ระบุ",
+   const baseRec = {
+        // 💡 MODIFICATION 4: บันทึกข้อมูลผู้แก้ไขจาก Auth
+        user: editorEmail, // ใช้ Email/Display Name
+        editorUID: editorUID, // ใช้ UID (Unique ID)
+        // 💡 END MODIFICATION 4
         status: statusVal,
         brokenDate,
         fixedDate,
@@ -472,6 +546,10 @@ async function getAssetDataForExport(siteKey) {
 }
 
 window.exportAllDataExcel = async function() {
+	// 💡 MODIFICATION 5: บังคับล็อคอินก่อนส่งออก
+    if (!requireAuth()) {
+        return;
+    }
     if (typeof XLSX === 'undefined') {
         Swal.fire('ข้อผิดพลาด', 'ไม่พบไลบรารี SheetJS (XLSX) กรุณาตรวจสอบการนำเข้าไฟล์ script', 'error');
         return;
@@ -500,19 +578,24 @@ window.exportAllDataExcel = async function() {
     // 1. Fetch History Data (Device by Device)
     for (const deviceName of devices) {
         try {
-            const history = await getDeviceRecords(currentSiteKey, deviceName); 
+            const docData = dataMap[deviceName] || {};
+            const records = docData?.records || [];
+            const assetData = await loadAssetData(deviceName);
             
-            const formattedHistory = history.map(rec => ({
+            // 💡 MODIFICATION 6: เพิ่ม Editor UID ในการ Export
+            const formattedHistory = records.map(rec => ({
                 'Device': deviceName,
-                'User': rec.user || '',
+                'User': rec.user || 'ไม่ระบุ',
+                'Editor UID': rec.editorUID || 'ไม่ระบุ', // NEW FIELD: สำหรับระบุตัวตนผู้แก้ไขที่ไม่ซ้ำ
                 'Status': rec.status === 'ok' ? 'ใช้งานได้' : 'ชำรุด',
                 'Broken Date': rec.brokenDate || '',
                 'Fixed Date': rec.fixedDate || '',
                 'Description': rec.description || '',
                 // **เรียกใช้ window.convertTimestampToDateTime**
                 'Timestamp (บันทึก)': window.convertTimestampToDateTime(rec.ts),
-                'TS (Unix)': rec.ts 
+                'TS (Unix)': rec.ts
             }));
+
             allHistoryRecords = allHistoryRecords.concat(formattedHistory);
             
             // 2. Prepare Asset Data (for the Asset Registration Sheet)
@@ -551,6 +634,12 @@ window.exportAllDataExcel = async function() {
 };
 
 window.importData = function() {
+	 // 💡 MODIFICATION 7: บังคับล็อคอินก่อนนำเข้า
+    if (!requireAuth()) {
+        event.target.value = ''; // เคลียร์ไฟล์ที่เลือกไว้
+        return;
+    }
+
     if (typeof XLSX === 'undefined') {
         Swal.fire('ข้อผิดพลาด', 'ไม่พบไลบรารี SheetJS (XLSX) กรุณาตรวจสอบการนำเข้าไฟล์ script', 'error');
         return;
@@ -712,6 +801,11 @@ window.importData = function() {
     fileInput.click();
 };
 window.clearCurrentDevice = async function() {
+	// 💡 MODIFICATION 8: บังคับล็อคอินก่อนล้างข้อมูล
+    if (!requireAuth()) {
+        return;
+    }
+
     if (!currentDevice) return;
     
     const confirmed = await Swal.fire({
@@ -755,6 +849,7 @@ async function loadHistory() {
     container.innerHTML = '';
     if (!currentDevice) return;
     
+    // ต้องแน่ใจว่าได้เรียกใช้ getDeviceRecords ที่มีข้อมูล user และ editorUID
     const records = await getDeviceRecords(currentSiteKey, currentDevice);
     records.sort((a, b) => b.ts - a.ts); // เรียงจากใหม่ไปเก่า
 
@@ -763,7 +858,7 @@ async function loadHistory() {
         return;
     }
     
-    // Flag เพื่อควบคุมให้แสดง (ชำรุด) เฉพาะรายการที่ใหม่ที่สุดเท่านั้น
+    // Flag เพื่อควบคุมให้แสดง (ชำรุด) เฉพาะรายการที่ใหม่ที่สุดที่ยังไม่ได้ซ่อมเท่านั้น
     let isCurrentBrokenFound = false; 
 
     records.forEach((r, index) => {
@@ -772,38 +867,39 @@ async function loadHistory() {
         
         if (r.brokenDate) {
             
-            // ตรวจสอบว่ามีวันที่ซ่อมแซมหรือไม่
+            // ตรวจสอบว่ามีวันที่ซ่อมแซมหรือไม่ (r.fixedDate จะเป็น string ว่าง '' ถ้าไม่ได้กรอก)
             if (r.fixedDate) {
                 // กรณี: ซ่อมแซมแล้ว
                 const days = calculateDaysDifference(r.brokenDate, r.fixedDate);
                 duration = formatDuration(days);
                 
-                // ถ้ารายการนี้ถูกซ่อมแล้ว (fixedDate มีค่า) รายการที่เก่ากว่าจะไม่ควรได้รับ Tag (ชำรุด)
-                isCurrentBrokenFound = true; // 💡 ตั้งเป็น true เพื่อ 'ปิด' ไม่ให้รายการเก่าๆ แสดง (ชำรุด)
+                // ตั้ง Flag ให้เป็น true เพื่อให้รายการชำรุดอื่นๆ ที่เป็นรายการ 'down' เก่า ไม่แสดงซ้ำ (ชำรุด)
+                isCurrentBrokenFound = true; 
 
-            } 
-            // ✅ FIX 2: ใช้เงื่อนไขที่รัดกุมที่สุด: fixedDate ต้องเป็น null เท่านั้น
-            else if (r.fixedDate === null && !isCurrentBrokenFound) { 
-                // กรณี: ยังชำรุด (fixedDate เป็น null)
-                const days = calculateDaysDifference(r.brokenDate, null);
+            } else if (r.status === 'down' && !isCurrentBrokenFound) {
+                // กรณี: ยังชำรุด (status: down, fixedDate: '') และเป็นรายการที่ใหม่ที่สุดที่ยังชำรุด
+                const days = calculateDaysDifference(r.brokenDate, null); // null = วันที่ปัจจุบัน
                 
                 // 💡 แสดง (ชำรุด) ทันที
                 duration = formatDuration(days) + ' <span class="text-sm text-red-400 font-semibold">(ชำรุด)</span>';
                 
-                // ตั้ง Flag ให้เป็น true เพื่อให้รายการชำรุดอื่นๆ ที่เป็นรายการ 'down' เก่า ไม่แสดงซ้ำ
                 isCurrentBrokenFound = true;
 
-            } else {
-                 // รายการที่ไม่มี fixedDate แต่ไม่ใช่รายการล่าสุด (เช่น รายการ down ที่ถูกรายการ fixedDate ปิดไปแล้ว)
-                 const days = calculateDaysDifference(r.brokenDate, null);
-                 duration = formatDuration(days);
+            } else if (r.status === 'down') {
+                // รายการชำรุดเก่าๆ ที่ถูกปิดด้วยรายการสถานะ 'ok' อื่นๆ แล้ว
+                const days = calculateDaysDifference(r.brokenDate, null);
+                duration = formatDuration(days);
             }
         }
         
         const statusClass = r.status === 'ok' ? 'tag-ok' : 'tag-bad';
         const statusText = r.status === 'ok' ? '✅ ใช้งานได้' : '❎ ชำรุด';
         
-        // --- 2. การสร้าง HTML (เหมือนเดิม) ---
+        // 💥 NEW: สร้าง HTML สำหรับแสดง User และ Editor UID
+        const editorInfo = r.editorUID ? `(<span title="${escapeHtml(r.editorUID)}">${escapeHtml(r.editorUID.substring(0, 4))}...</span>)` : ''; // แสดง UID 4 ตัวแรก
+        const userDisplayHtml = `${escapeHtml(r.user || 'ไม่ระบุ')} ${editorInfo}`;
+        
+        // --- 2. การสร้าง HTML ---
         const div = document.createElement('div');
         div.className = 'p-4 mb-3 border border-gray-700 bg-gray-800 rounded-lg shadow-md'; 
         
@@ -813,7 +909,7 @@ async function loadHistory() {
                     <span class="tag ${statusClass}">${statusText}</span>
                 </div>
                 <div class="text-sm text-gray-400">
-                    บันทึกโดย: <span class="font-semibold text-white">${escapeHtml(r.user || 'ไม่ระบุ')}</span>
+                    บันทึกโดย: <span class="font-semibold text-white">${userDisplayHtml}</span>
                 </div>
             </div>
 
@@ -1305,6 +1401,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
