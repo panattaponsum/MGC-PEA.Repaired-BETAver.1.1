@@ -159,7 +159,7 @@ function updateUIForAuthState(user) {
         }
         
         // 🎯 FIX A: เรียก Logic การเริ่มต้นไซต์เมื่อล็อคอินสำเร็จแล้ว
-        initializeSiteIfLoggedIn(); 
+        initializeSiteSelection(); 
         
     } else {
         isAuthenticated = false;
@@ -204,11 +204,7 @@ window.handleAuthAction = function() {
     if (!auth.currentUser) {
         // สร้าง Provider (ถ้ายังไม่ได้ทำ)
         const provider = new firebase.auth.GoogleAuthProvider();
-
-        // ***************************************************************
-        // ✅ FIX: เปลี่ยนไปใช้ Pop-up เพื่อหลีกเลี่ยง Redirect Loop
-        // ***************************************************************
-        auth.signInWithPopup(provider)
+        auth.signInWithRedirect(provider);
             .then((result) => {
                 // ล็อคอินสำเร็จ, onAuthStateChanged จะจัดการ UI ต่อไป
             })
@@ -233,26 +229,18 @@ function requireAuth() {
 }
 
 auth.onAuthStateChanged(function(user) {
-    // ... โค้ดเดิม: ประกาศตัวแปร และเรียก updateUIForAuthState ...
-    updateUIForAuthState(user); // โค้ดนี้จะจัดการซ่อน/แสดงปุ่ม
+    // 1. อัปเดต UI ตามสถานะล็อคอิน (รวมถึงเรียก initializeSiteSelection ภายในเมื่อล็อคอินสำเร็จ)
+    updateUIForAuthState(user); 
 
-    if (user) {
-        // ✅ FIX 2: เมื่อล็อคอินสำเร็จ ให้เริ่มต้นโหลดข้อมูลไซต์
-        eSelection(); 
-        
-        // 💡 OPTIONAL: ถ้ามีหน้าล็อคอินเฉพาะ ให้ซ่อนมันตรงนี้
-        // document.getElementById('loginPage')?.classList.add('hidden');
-        
-    } else {
-        // 💡 OPTIONAL: ถ้าออกจากระบบ ให้ไปหน้าหลัก/ซ่อน Summary
-        document.getElementById('summaryPage')?.classList.add('hidden');
-        document.getElementById('topologyPage')?.classList.remove('hidden');
-        
-        // ✅ FIX 3: เมื่อ Logout ให้เคลียร์ข้อมูลสรุปที่ค้างอยู่ (ถ้ามี)
-        if (typeof window.updateDeviceSummary === 'function') {
-            window.updateDeviceSummary(); // เรียกเพื่อแสดงตารางว่าง/ข้อความ 'กรุณาล็อคอิน'
-        }
-    }
+    if (user) {
+        // 🛑 ลบ: eSelection();
+        // 💡 เหตุผล: Logic การโหลดไซต์ถูกย้ายไปอยู่ใน updateUIForAuthState(user) แล้ว
+        // การเรียกซ้ำอาจทำให้เกิดปัญหา Reference Error และ Flow Control
+
+    } else {
+        // 💡 โค้ดส่วนนี้ถูกย้ายไปอยู่ใน updateUIForAuthState(user) แล้ว
+        // จึงไม่จำเป็นต้องเขียนซ้ำใน onAuthStateChanged
+    }
 });
 
 function escapeHtml(text) {
@@ -1524,6 +1512,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
