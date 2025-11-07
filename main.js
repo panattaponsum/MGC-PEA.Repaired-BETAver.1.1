@@ -223,23 +223,26 @@ function updateUIForAuthState(user) {
 }
 
 window.handleAuthAction = function() {
-    if (!auth.currentUser) {
-        const provider = new firebase.auth.GoogleAuthProvider();
-       auth.signInWithPopup(provider) // 🟢 เปลี่ยนเป็น Pop-up
-        .then(() => {
-            // ไม่ต้องทำอะไร ปล่อยให้ onAuthStateChanged ทำงานต่อ
-        })
-        .catch((error) => {
-            console.error("Popup login failed:", error);
-            Swal.fire('ข้อผิดพลาดการล็อคอิน', 'กรุณาลองอีกครั้ง: ' + error.message, 'error');
-        });
-              
-    } else {
-        // โค้ดสำหรับ Logout
-        auth.signOut().then(() => {
-            Swal.fire('สำเร็จ', 'คุณออกจากระบบแล้ว', 'success');
-        });
-    }
+    if (auth.currentUser) {
+        // Logout: [โค้ดเดิม]
+        auth.signOut()
+            .then(() => { /* ... */ })
+            .catch((error) => {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถออกจากระบบได้: ' + error.message, 'error');
+            });
+    } else {
+        // 🟢 Login ด้วย Pop-up
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider) // <--- เปลี่ยนตรงนี้
+            .then((result) => {
+                // ไม่ต้องทำอะไร ปล่อยให้ onAuthStateChanged จัดการ UI ต่อ
+                console.log("Login successful via Pop-up.");
+            })
+            .catch((error) => {
+                console.error("Popup login failed:", error);
+                Swal.fire('ข้อผิดพลาดการล็อคอิน', 'กรุณาลองอีกครั้ง: ' + error.message, 'error');
+            });
+    }
 };
 // ฟังก์ชันบังคับตรวจสอบสิทธิ์
 function requireAuth() {
@@ -1520,6 +1523,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
