@@ -129,38 +129,28 @@ function updateUIForAuthState(user) {
     }
 }
 window.handleAuthAction = function() {
-    if (isAuthenticated) {
-        // กรณี Logout ยังคงใช้ signOut() เหมือนเดิม
-        auth.signOut();
-    } else {
-        // 💥 FIX: เปลี่ยนจาก signInWithPopup() เป็น signInWithRedirect() 💥
-        
-        // ใช้ Google Sign-In
+    if (!auth.currentUser) {
+        // สร้าง Provider (ถ้ายังไม่ได้ทำ)
         const provider = new firebase.auth.GoogleAuthProvider();
-        // กำหนดให้ขอ Email, Profile
-        provider.addScope('profile');
-        provider.addScope('email');
 
-        auth.signInWithRedirect(provider); // <--- แก้ไขตรงนี้
+        // ***************************************************************
+        // ✅ FIX: เปลี่ยนไปใช้ Pop-up เพื่อหลีกเลี่ยง Redirect Loop
+        // ***************************************************************
+        auth.signInWithPopup(provider)
+            .then((result) => {
+                // ล็อคอินสำเร็จ, onAuthStateChanged จะจัดการ UI ต่อไป
+            })
+            .catch((error) => {
+                console.error("Login Pop-up failed:", error);
+                Swal.fire('ข้อผิดพลาดการล็อคอิน', 'กรุณาลองอีกครั้ง: ' + error.message, 'error');
+            });
+    } else {
+        // โค้ดสำหรับ Logout
+        auth.signOut().then(() => {
+            Swal.fire('สำเร็จ', 'คุณออกจากระบบแล้ว', 'success');
+        });
     }
 };
-
-// 💡 NEW: เพิ่มโค้ดสำหรับจัดการผลลัพธ์จากการ Redirect
-auth.getRedirectResult().then((result) => {
-    if (result.credential) {
-        // หากล็อคอินสำเร็จ result.user จะถูกจัดการโดย onAuthStateChanged ต่อไป
-        console.log("Login successful via redirect.");
-    }
-}).catch((error) => {
-    // จัดการข้อผิดพลาดหลังการ Redirect
-    console.error("Login failed after redirect:", error);
-    // ไม่ต้องทำอะไรมาก เพราะ onAuthStateChanged จะจัดการ UI ให้อยู่แล้ว
-    if (error.code !== 'auth/unauthorized-domain') {
-        Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการล็อคอิน: ' + error.message, 'error');
-    }
-});
-auth.onAuthStateChanged(updateUIForAuthState);
-
 // ฟังก์ชันบังคับตรวจสอบสิทธิ์
 function requireAuth() {
     if (!isAuthenticated) {
@@ -1446,6 +1436,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
