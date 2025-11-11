@@ -1539,7 +1539,7 @@ window.showSummary = async function() { // 💡 1. เพิ่ม async
 
     // 💡 2. เพิ่มการรอ (await) ให้แน่ใจว่า DOM อัปเดตแล้ว
     // นี่คือการ "รอ Tick ถัดไป" ของเบราว์เซอร์
-    await new Promise(resolve => setTimeout(resolve, 0)); 
+    await new Promise(resolve => setTimeout(resolve, 100)); 
 
     // บรรทัดนี้จะถูกเรียกต่อ ไม่ว่าการสลับหน้าจะสมบูรณ์หรือไม่
     window.updateDeviceSummary(); 
@@ -1582,6 +1582,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
