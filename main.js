@@ -1354,77 +1354,82 @@ window.changePage = function(step) {
 }
 
 window.updateDeviceStatusOverlays = async function(siteKey) {
-    const mapContainer = document.getElementById(`map-${siteKey}`);
-    if (!mapContainer) return;
+    try {
+        const mapContainer = document.getElementById(`map-${siteKey}`);
+        if (!mapContainer) return;
 
-    const imgElement = mapContainer.querySelector('img');
-    if (!imgElement) return;
+        const imgElement = mapContainer.querySelector('img');
+        if (!imgElement) return;
 
-    // 1. ลบ Overlay เก่าทั้งหมดออก
-    mapContainer.querySelectorAll('.device-overlay').forEach(el => el.remove());
+        // 1. ลบ Overlay เก่าทั้งหมดออก
+        mapContainer.querySelectorAll('.device-overlay').forEach(el => el.remove());
 
-    // 2. ดึงข้อมูลอุปกรณ์ที่ 'down'
-    const docsSnap = await getAllDevicesDocs(siteKey);
-    const downDevices = {};
-    docsSnap.forEach(d => {
-        const data = d.data();
-        if (data && data.currentStatus === 'down') {
-            downDevices[d.id] = true;
-        }
-    });
-
-    // 3. ค้นหา Map Area และสร้าง Overlay
-    const mapElement = mapContainer.querySelector('map');
-    if (!mapElement) return;
-
-    const areaElements = mapElement.querySelectorAll('area');
-
-    const MIN_DIMENSION = 10; 
-
-    // ใช้ค่าชดเชยตามที่เคยกำหนด (แม่สะเรียง +25px)
-    const OFFSET_TOP = (siteKey === 'mae-sariang' || siteKey === 'betong') ? 25 : 0;
-
-    areaElements.forEach(area => {
-        const deviceName = area.getAttribute('alt');
-        if (downDevices[deviceName]) {
-            // พบอุปกรณ์ชำรุดที่ตรงกับ Area ในแผนที่
-            const coords = area.getAttribute('coords').split(',').map(c => parseInt(c.trim()));
-            const shape = area.getAttribute('shape');
-
-            let x, y, width, height;
-
-            if (shape === 'rect' && coords.length === 4) {
-                x = coords[0];
-                y = coords[1];
-                width = coords[2] - coords[0];
-                height = coords[3] - coords[1];
-                
-                width = Math.max(width, MIN_DIMENSION);
-                height = Math.max(height, MIN_DIMENSION);
-
-            } else {
-                return;
+        // 2. ดึงข้อมูลอุปกรณ์ที่ 'down'
+        const docsSnap = await getAllDevicesDocs(siteKey);
+        const downDevices = {};
+        docsSnap.forEach(d => {
+            const data = d.data();
+            if (data && data.currentStatus === 'down') {
+                downDevices[d.id] = true;
             }
+        });
 
-            const overlay = document.createElement('div');
-            overlay.className = 'device-overlay down';
+        // 3. ค้นหา Map Area และสร้าง Overlay
+        const mapElement = mapContainer.querySelector('map');
+        if (!mapElement) return;
 
-            const PADDING = 2; // ขนาดของขอบวงกลมรอบอุปกรณ์
-            
-            overlay.style.left = `${x - PADDING}px`;
-            // ใช้ OFFSET_TOP เพื่อชดเชยตำแหน่ง
-            overlay.style.top = `${y - PADDING + OFFSET_TOP}px`; 
-            overlay.style.width = `${width + (2 * PADDING)}px`;
-            overlay.style.height = `${height + (2 * PADDING)}px`;
-            
-            overlay.setAttribute('title', deviceName);
+        const areaElements = mapElement.querySelectorAll('area');
 
-            mapContainer.appendChild(overlay);
-        }
-    });
-}
+        const MIN_DIMENSION = 10; 
 
-let unsubscribe = null; // ตัวแปรสำหรับเก็บฟังก์ชันยกเลิกการติดตาม
+        // ใช้ค่าชดเชยตามที่เคยกำหนด (แม่สะเรียง +25px)
+        const OFFSET_TOP = (siteKey === 'mae-sariang' || siteKey === 'betong') ? 25 : 0;
+
+        areaElements.forEach(area => {
+            const deviceName = area.getAttribute('alt');
+            if (downDevices[deviceName]) {
+                // พบอุปกรณ์ชำรุดที่ตรงกับ Area ในแผนที่
+                const coords = area.getAttribute('coords').split(',').map(c => parseInt(c.trim()));
+                const shape = area.getAttribute('shape');
+
+                let x, y, width, height;
+
+                if (shape === 'rect' && coords.length === 4) {
+                    x = coords[0];
+                    y = coords[1];
+                    width = coords[2] - coords[0];
+                    height = coords[3] - coords[1];
+                    
+                    width = Math.max(width, MIN_DIMENSION);
+                    height = Math.max(height, MIN_DIMENSION);
+
+                } else {
+                    return;
+                }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'device-overlay down';
+
+                const PADDING = 2; // ขนาดของขอบวงกลมรอบอุปกรณ์
+                
+                overlay.style.left = `${x - PADDING}px`;
+                // ใช้ OFFSET_TOP เพื่อชดเชยตำแหน่ง
+                overlay.style.top = `${y - PADDING + OFFSET_TOP}px`; 
+                overlay.style.width = `${width + (2 * PADDING)}px`;
+                overlay.style.height = `${height + (2 * PADDING)}px`;
+                
+                overlay.setAttribute('title', deviceName);
+
+                mapContainer.appendChild(overlay);
+            }
+        });
+    
+    } catch (error) {
+        // 💡 นี่คือ CATCH ที่เพิ่มเข้ามา
+        // ป้องกันไม่ให้แครชหากยังไม่ล็อคอิน
+        console.warn("Could not load device overlays (Permission Denied?):", error.message);
+    }
+};
 
 function setupRealtimeListener(siteKey) {
     if (unsubscribe) {
@@ -1570,6 +1575,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.onload = function() {
     try { imageMapResize(); } catch (e) {}
 };
+
 
 
 
