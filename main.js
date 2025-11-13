@@ -191,10 +191,10 @@ function getWarrantyStatus(warrantyEnd) {
 
     if (diffDays < 0) {
         return 'bad'; // หมดประกันแล้ว
-    } else if (diffDays <= 180) {
-        return 'warn'; // ใกล้หมดประกัน (180 วัน)
+    } else if (diffDays <= 30) {
+        return 'warn'; // ใกล้หมดประกัน (30 วัน)
     } else {
-        return 'ok'; // รับประกัน
+        return 'ok'; // ยังรับประกัน
     }
 }
 
@@ -206,11 +206,11 @@ function getWarrantyStatus(warrantyEnd) {
 function getWarrantyStatusHTML(status) {
     switch (status) {
         case 'ok':
-            return '<span class="tag tag-warranty-ok">🛡️ รับประกัน</span>';
+            return '<span class="tag tag-warranty-ok">🛡️ ยังรับประกัน</span>';
         case 'warn':
             return '<span class="tag tag-warranty-warn">⚠️ ใกล้หมดประกัน</span>';
         case 'bad':
-            return '<span class="tag tag-warranty-bad">🚫 หมดประกัน</span>';
+            return '<span class="tag tag-warranty-bad">🚫 หมดประกันแล้ว</span>';
         default:
             return '<span>-</span>';
     }
@@ -247,7 +247,7 @@ function toggleWriteAccess(isLoggedIn) {
 
     // อัปเดตปุ่มในประวัติ (ถ้า Modal เปิดอยู่)
     // การเรียก loadHistory() ซ้ำจะจัดการเรื่องนี้ให้เอง
-    if (document.getElementById('formModal').style.display === 'block' || document.getElementById('formModal').style.display === 'flex') { // 💥 FIX: รองรับ flex ด้วย
+    if (document.getElementById('formModal').style.display === 'flex') { // 💥 FIX: รองรับ flex
         loadHistory(); 
     }
     
@@ -563,7 +563,7 @@ async function loadHistory() {
             if (r.fixedDate) {
                 const days = calculateDaysDifference(r.brokenDate, r.fixedDate);
                 duration = formatDuration(days);
-                isCurrentBrokenFound = true; 
+                // 💥💥💥 FIX 2: ลบ isCurrentBrokenFound = true; ออกจากที่นี่ 💥💥💥
             } else if (!r.fixedDate && !isCurrentBrokenFound) { // 👈 ใช้ !r.fixedDate
                 const days = calculateDaysDifference(r.brokenDate, null);
                 duration = formatDuration(days) + ' <span class="text-sm text-red-400 font-semibold">(ชำรุด)</span>';
@@ -770,9 +770,9 @@ function updateAssetWarrantyStatusField() {
     const field = document.getElementById('assetWarrantyStatus');
     
     switch (status) {
-        case 'ok': field.value = 'รับประกัน'; break;
+        case 'ok': field.value = 'ยังรับประกัน'; break;
         case 'warn': field.value = 'ใกล้หมดประกัน'; break;
-        case 'bad': field.value = 'หมดประกัน'; break;
+        case 'bad': field.value = 'หมดประกันแล้ว'; break;
         default: field.value = 'N/A (ข้อมูลไม่ครบ)';
     }
 }
@@ -1274,7 +1274,7 @@ window.importData = function(event) {
                             status: finalStatus, 
                             description: (row[headerMap['คำอธิบาย']] || '').toString() || 'นำเข้าจาก Excel',
                             user: (row[headerMap['ผู้บันทึก']] || '').toString() || currentUser.email, // 👈 💥 FIX 1.2: ใช้ email
-                            counted: (finalStatus === 'down'), // 👈 💥 FIX 2.2: ตรรกะ 'counted' ที่ถูกต้อง
+                            counted: !!importedBrokenDate, // 👈 💥💥💥 FIX 1: แก้ตรรกะ counted 💥💥💥
                         };
                         
                         if (record.brokenDate && record.fixedDate === null) {
@@ -1378,9 +1378,9 @@ window.exportAllDataExcel = async function() {
         const warrantyStatus = getWarrantyStatus(assetInfo.warrantyEnd);
         let warrantyStatusText = 'N/A (ไม่ระบุ)';
         switch(warrantyStatus) {
-            case 'ok': warrantyStatusText = 'รับประกัน'; break;
+            case 'ok': warrantyStatusText = 'ยังรับประกัน'; break;
             case 'warn': warrantyStatusText = 'ใกล้หมดประกัน'; break;
-            case 'bad': warrantyStatusText = 'หมดประกัน'; break;
+            case 'bad': warrantyStatusText = 'หมดประกันแล้ว'; break;
         }
 
         // เพิ่ม 1 แถวสำหรับอุปกรณ์นี้ลงใน assetData
@@ -1551,7 +1551,7 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('userInfo').classList.remove('hidden');
             document.getElementById('loginButton').classList.add('hidden');
             // 💥 FIX 1.3: ใช้ email
-            document.getElementById('userNameDisplay').textContent = `${user.email}`; 
+            document.getElementById('userNameDisplay').textContent = `สวัสดี, ${user.email}`; 
             toggleWriteAccess(true);
         } else {
             // ผู้ใช้ออกจากระบบ
@@ -1609,6 +1609,3 @@ window.onload = function() {
     try { imageMapResize(); } catch (e) {}
     
 };
-
-
-
