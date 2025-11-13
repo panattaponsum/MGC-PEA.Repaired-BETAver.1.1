@@ -206,11 +206,11 @@ function getWarrantyStatus(warrantyEnd) {
 function getWarrantyStatusHTML(status) {
     switch (status) {
         case 'ok':
-            return '<span class="tag tag-warranty-ok">🛡️ ยังรับประกัน</span>';
+            return '<span class="tag tag-warranty-ok">🛡️ รับประกัน</span>';
         case 'warn':
             return '<span class="tag tag-warranty-warn">⚠️ ใกล้หมดประกัน</span>';
         case 'bad':
-            return '<span class="tag tag-warranty-bad">🚫 หมดประกันแล้ว</span>';
+            return '<span class="tag tag-warranty-bad">🚫 หมดประกัน</span>';
         default:
             return '<span>-</span>';
     }
@@ -1616,5 +1616,6 @@ window.onload = function() {
     try { imageMapResize(); } catch (e) {}
     
 };
+
 
 
