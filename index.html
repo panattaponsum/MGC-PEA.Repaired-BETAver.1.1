@@ -52,7 +52,7 @@ h1,h2,h3,th {
 .table td,.table th{padding:10px 12px;text-align:center}
 #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000}
 #formModal input,#formModal select,#formModal textarea {background: #fff;color: #000;border: 1px solid #ccc;border-radius: 6px;padding: 8px 10px;font-size: 14px;outline: none;}
-#formModal{overflow-y: auto;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1001;width:min(560px,92vw);background:linear-gradient(180deg, rgba(17,24,39,.95), rgba(3,6,14,.95));border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:18px;max-height:100vh;display:none;flex-direction:column;}
+#formModal{overflow-y: auto;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1001;width:min(560px,92vw);background:linear-gradient(180deg, rgba(17,24,39,.95), rgba(3,6,14,.95));border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:18px;max-height:90vh;display:none;flex-direction:column;}
 .entry{border:1px dashed rgba(255,255,255,.1);border-radius:12px;padding:10px;margin:8px 0;background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01))}
 .muted{color:var(--text);font-size:10px}
 .device-img{width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,.06)}
@@ -320,15 +320,13 @@ h1,h2,h3,th {
       <thead>
         <tr>
           <th>อุปกรณ์</th>
-          <th>จำนวนครั้งชำรุดทั้งหมด</th>
-          <th>วันที่ชำรุด</th>
+          <th>จำนวนครั้งชำรุด (ทั้งหมด / คงเหลือ)</th>
+		   <th>วันที่ชำรุด</th>
           <th>วันที่ซ่อมแซม</th>
           <th>สถานะล่าสุด</th>
 	<th>⚠️ ระยะเวลาชำรุด</th>
-	<th><span class="text-yellow-400">🛡️</span> สถานะประกัน</th>
           <th>รายละเอียดล่าสุด</th>
-        </tr>
-      </thead>
+        </tr> </thead>
       <tbody id="summaryBody"></tbody>
     </table>
     <div id="pagination"></div>
@@ -448,6 +446,3 @@ h1,h2,h3,th {
 <script src="main.js"></script>
 </body>
 </html>
-
-
-
