@@ -572,7 +572,7 @@ async function loadHistory() {
     records.forEach((r, index) => {
         
         // คำนวณลำดับที่ถูกต้อง (1 คือเก่าสุด, totalRecords คือใหม่สุด) 
-        const recordSequence = index + 1; // ใหม่สุดคือ index 0 = 1, index 1 = 2
+        const recordSequence = totalRecords - index;
         let duration = '-';
         if (r.brokenDate) {
             
@@ -604,7 +604,7 @@ async function loadHistory() {
             <div class="flex justify-between items-start border-b border-gray-700 pb-2 mb-2">
                 <div class="text-lg font-bold text-white">
                     <span class="tag ${statusClass}">${statusText}</span>
-					<span class="ml-2 text-base text-gray-300">| บันทึกครั้งที่ ${recordSequence}</span>
+					<span class="ml-2 text-base text-gray-300">| ครั้งที่ ${recordSequence}</span>
                 </div>
                 <div class="text-sm text-gray-400">
                     บันทึกโดย: <span class="font-semibold text-white">${escapeHtml(r.user || 'ไม่ระบุ')}</span>
@@ -1662,6 +1662,7 @@ window.onload = function() {
     try { imageMapResize(); } catch (e) {}
     
 };
+
 
 
 
