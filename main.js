@@ -11,10 +11,11 @@ measurementId: "G-L45B835SV4"
 
 // Initialize Firebase (ใช้ชื่อฟังก์ชัน Global ที่ถูกโหลดมา)
 firebase.initializeApp(firebaseConfig); 
-const db = firebase.firestore();
+const db = firebase.firestore(); 
 // 💥 NEW: Initialize Auth (ต้องมีสำหรับ `main.js` นี้) 💥
 const auth = firebase.auth(); 
-const devicesCol = db.collection("devices"); // 💡 Not used globally in this structure, but kept for context
+const devicesCol = db.collection("devices"); 
+// 💡 Not used globally in this structure, but kept for context 
 
 const sites = {
 "ko-phaluay": {
@@ -43,8 +44,7 @@ devices: [
 ]
 }
 };
-
-let currentSiteKey = "ko-phaluay";
+ let currentSiteKey = "ko-phaluay";
 let currentDevice = null, editIndex = -1, chartInstance = null;
 let currentPage = 1;
 const pageSize = 7; // 💡 Note: This is overridden by 10 in updateDeviceSummary, kept for consistency
@@ -67,7 +67,7 @@ return db.collection(`sites`).doc(siteKey).collection(`devices`);
 * Fetches and processes records for a specific device.
 */
 async function getDeviceRecords(siteKey, device) {
-const docRef = getSiteCollection(siteKey).doc(device);
+const docRef = getSiteCollection(siteKey).doc(device); 
 const snap = await docRef.get();
 const recs = snap.exists ? (snap.data().records || []) : [];
 // Ensure all records have 'counted' property
@@ -402,19 +402,20 @@ return false;
 
 let records = await getDeviceRecords(currentSiteKey, currentDevice);
 
+// 💥 MODIFIED (1): ลบเงื่อนไขห้ามบันทึกซ้ำ ถ้าอุปกรณ์ยังชำรุด
 if (editIndex < 0) { 
-const latestRecord = records.length > 0 ? records[records.length - 1] : null;
-const currentStatus = latestRecord ? latestRecord.status : 'ok'; // สถานะปัจจุบัน
-
-// 🚨 (Optional but Good Practice) ถ้าอุปกรณ์ใช้งานได้อยู่แล้ว ห้ามบันทึกรายการ 'ok' ที่มีวันที่ซ่อม
-if (currentStatus === 'ok' && statusVal === 'ok' && (brokenDate || fixedDate)) {
-Swal.fire({
-title: 'ข้อมูลขัดแย้ง',
-text: 'อุปกรณ์อยู่ในสถานะ "ใช้งานได้" อยู่แล้ว การบันทึก "ใช้งานได้" ใหม่ ที่มีวันที่ชำรุด/ซ่อมแซมถือเป็นข้อมูลซ้ำซ้อน กรุณาบันทึกสถานะชำรุดเป็นรายการใหม่ก่อน แล้วจึงแก้ไขเป็นสถานะใช้งานได้',
-icon: 'warning'
-});
-return false;
-}
+    const latestRecord = records.length > 0 ? records[records.length - 1] : null;
+    const currentStatus = latestRecord ? latestRecord.status : 'ok'; // สถานะปัจจุบัน
+    
+    // 🚨 (Optional but Good Practice) ถ้าอุปกรณ์ใช้งานได้อยู่แล้ว ห้ามบันทึกรายการ 'ok' ที่มีวันที่ซ่อม
+    if (currentStatus === 'ok' && statusVal === 'ok' && (brokenDate || fixedDate)) {
+         Swal.fire({
+            title: 'ข้อมูลขัดแย้ง',
+            text: 'อุปกรณ์อยู่ในสถานะ "ใช้งานได้" อยู่แล้ว การบันทึก "ใช้งานได้" กรุณาบันทึกสถานะ "ชำรุด" เป็นรายการใหม่ก่อน แล้วจึงแก้ไขเป็นสถานะ "ใช้งานได้" ',
+            icon: 'warning'
+        });
+        return false;
+    }
 }
 
 const baseRec = {
@@ -561,9 +562,8 @@ const totalRecords = records.length; // จำนวนรายการทั�
 
 records.forEach((r, index) => {
 
-// คำนวณลำดับที่ถูกต้อง (1 คือเก่าสุด, totalRecords คือใหม่สุด) 
-     
-        const recordSequence = totalRecords - index;
+// คำนวณลำดับที่ถูกต้อง (เก่าสุดคือ 1, ใหม่สุดคือ totalRecords) 
+        const recordSequence = totalRecords - index; 
 let duration = '-';
 if (r.brokenDate) {
 
@@ -595,7 +595,7 @@ div.innerHTML = `
            <div class="flex justify-between items-start border-b border-gray-700 pb-2 mb-2">
                <div class="text-lg font-bold text-white">
                    <span class="tag ${statusClass}">${statusText}</span>
-					<span class="ml-2 text-base text-gray-300">| ครั้งที่ ${recordSequence}</span>
+					<span class="ml-2 text-base text-gray-300">| บันทึกครั้งที่ ${recordSequence}</span>
                </div>
                <div class="text-sm text-gray-400">
                    บันทึกโดย: <span class="font-semibold text-white">${escapeHtml(r.user || 'ไม่ระบุ')}</span>
@@ -663,11 +663,7 @@ let records = await getDeviceRecords(currentSiteKey, currentDevice);
 const idx = records.findIndex(r => String(r.ts) === String(ts));
 if (idx < 0) return;
 
-return; // ยกเลิกการแก้ไข
-}
 const r = records[idx];
-// 💡 ไม่ต้องตั้ง userName เพราะมันถูกล็อคโดย auth state อยู่แล้ว
-// document.getElementById('userName').value = r.user || ''; 
 document.getElementById('status').value = r.status || 'down';
 document.getElementById('brokenDate').value = r.brokenDate || '';
 document.getElementById('fixedDate').value = r.fixedDate || '';
@@ -676,6 +672,13 @@ editIndex = idx;
 document.getElementById('editHint').classList.remove('hidden');
 };
 
+// =========================================================================
+// 💥 NEW: Asset Modal Functions
+// =========================================================================
+
+/**
+* เปิด Modal ข้อมูลทรัพย์สิน
+*/
 window.openAssetModal = async function() {
 if (!currentDevice) return;
 
@@ -761,9 +764,6 @@ Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึ�
 }
 }
 
-/**
-* อัปเดตช่อง "สถานะประกัน (คำนวณ)" ในฟอร์มทรัพย์สิน
-*/
 function updateAssetWarrantyStatusField() {
 const endDate = document.getElementById('assetWarrantyEnd').value;
 const status = getWarrantyStatus(endDate);
@@ -820,10 +820,6 @@ endEl.addEventListener('change', calculateYears);
 endEl.addEventListener('change', updateAssetWarrantyStatusField);
 }
 
-// =========================================================================
-// Summary Table and Filtering Logic
-// =========================================================================
-
 window.updateDeviceSummary = async function() {
 const siteData = sites[currentSiteKey];
 if (!siteData) return;
@@ -848,83 +844,110 @@ const records = docData?.records || [];
 // 💥 ดึงข้อมูลทรัพย์สิน
 const assetInfo = docData?.assetInfo;
 
-// Find latest record by timestamp
+// Find latest record by timestamp (for filtering/latest description)
 let latestRecord = null;
 if (records.length > 0) {
-// ✅ FIX: เรียงจากเก่าไปใหม่ (ts น้อยไปมาก) ให้สอดคล้องกับ saveDeviceRecords/updateAllAffectedDevicesSummary
+// เรียงจากเก่าไปใหม่ (ts น้อยไปมาก)
 records.sort((a, b) => a.ts - b.ts); 
 latestRecord = records[records.length - 1]; // Get the newest record from the end
 }
 
-let downCount = docData?.downCount || 0; // ใช้ค่าที่ถูกคำนวณไว้ใน Firestore
+let downCount = docData?.downCount || 0; // จำนวนครั้งชำรุดทั้งหมด
+// 💥 MODIFIED (3): คำนวณคงเหลือ (Remaining DownCount)
+const remainingDownRecords = records.filter(r => r.status === 'down' && !r.fixedDate);
+const remainingDownCount = remainingDownRecords.length;
 
 // --- Downtime Calculation for Summary Table ---
 let latestBrokenDuration = '-';
 let latestBrokenDays = 0;
+// 💥 MODIFIED (4): ดึงวันที่ชำรุดที่เก่าที่สุดที่ยังชำรุดอยู่
+let earliestBrokenDate = '-';
+let latestFixedDate = latestRecord?.fixedDate || '-';
+let currentStatusDisplay = docData?.currentStatus || 'ok';
+const isCurrentlyDown = currentStatusDisplay === 'down';
 
-const currentDeviceStatus = docData?.currentStatus || 'ok';
-const isCurrentlyDown = currentDeviceStatus === 'down';
 
-if (isCurrentlyDown && latestRecord && latestRecord.brokenDate) {
-// คำนวณระยะเวลาชำรุดล่าสุด (ยังชำรุด)
-latestBrokenDays = calculateDaysDifference(latestRecord.brokenDate, null); // null = วันที่ปัจจุบัน
-latestBrokenDuration = formatDuration(latestBrokenDays) + ' (ชำรุด)';
-} else if (latestRecord && latestRecord.status === 'ok' && latestRecord.brokenDate && latestRecord.fixedDate) {
-// คำนวณระยะเวลาของรอบชำรุดล่าสุดที่ถูกซ่อมแล้ว
-latestBrokenDays = calculateDaysDifference(latestRecord.brokenDate, latestRecord.fixedDate);
-latestBrokenDuration = formatDuration(latestBrokenDays);
+if (remainingDownCount > 0) {
+    // ใช้วันที่ชำรุดจากรายการที่เก่าที่สุดในกลุ่มที่ยังไม่ถูกซ่อม
+    const oldestRemainingRecord = remainingDownRecords.reduce((oldest, current) => {
+        if (!oldest || current.ts < oldest.ts) return current;
+        return oldest;
+    }, null);
+
+    earliestBrokenDate = oldestRemainingRecord?.brokenDate || '-';
+    latestFixedDate = '-'; // หากยังมีรายการค้างอยู่ วันที่ซ่อมล่าสุดคือ '-'
+
+    // คำนวณระยะเวลาชำรุด (ของรายการที่เก่าที่สุดที่ยังชำรุดอยู่)
+    latestBrokenDays = calculateDaysDifference(earliestBrokenDate, null); // null = วันที่ปัจจุบัน
+    latestBrokenDuration = formatDuration(latestBrokenDays) + ' (ค้าง)';
+    currentStatusDisplay = '❎ ชำรุด';
+    
+} else if (latestRecord && latestRecord.brokenDate) {
+    // ถ้าไม่มีรายการค้างอยู่ ให้ใช้รายการล่าสุดที่ถูกซ่อมแล้ว
+    earliestBrokenDate = latestRecord.brokenDate;
+    
+    if (latestRecord.fixedDate) {
+         latestBrokenDays = calculateDaysDifference(latestRecord.brokenDate, latestRecord.fixedDate);
+         latestBrokenDuration = formatDuration(latestBrokenDays);
+    } else {
+         // กรณีสุดท้าย: มีแค่บันทึก down ที่ถูกนับแล้ว แต่ไม่มีบันทึก ok ตามมา (ไม่ควรเกิดขึ้นถ้าใช้ saveData ถูกต้อง)
+         latestBrokenDuration = '-'; 
+    }
+} else {
+    // ไม่มี records เลย
 }
-
+        
 // 💡 การกรองวันที่ (Date Filtering)
-let latestDateStr = latestRecord ? latestRecord.brokenDate : null;
+let dateFilterSource = earliestBrokenDate !== '-' ? earliestBrokenDate : latestRecord?.brokenDate;
 
 
-if (latestDateStr) {
-const latestTs = new Date(latestDateStr).getTime();
-
-if (from) {
-const fromTs = new Date(from).getTime();
-if (latestTs < fromTs) continue;
-}
-if (to) {
-const toTs = new Date(to).getTime() + (1000 * 60 * 60 * 24); 
-if (latestTs >= toTs) continue;
-}
+if (dateFilterSource && dateFilterSource !== '-') {
+    const latestTs = new Date(dateFilterSource).getTime();
+    
+    if (from) {
+        const fromTs = new Date(from).getTime();
+        if (latestTs < fromTs) continue;
+    }
+    if (to) {
+        const toTs = new Date(to).getTime() + (1000 * 60 * 60 * 24); 
+        if (latestTs >= toTs) continue;
+    }
 }        
 // --- ตรรกะการกรองสถานะ (Status Filtering) ---
 // 💡 FIX: กรองตามสถานะที่เลือกอย่างถูกต้อง
-if (filterStatus === 'currently-down' && !isCurrentlyDown) {
-continue; // กรองออกถ้าเลือก "ชำรุดอยู่" แต่มันไม่ชำรุด
+if (filterStatus === 'currently-down' && remainingDownCount === 0) {
+    continue; // กรองออกถ้าเลือก "ชำรุดอยู่" แต่มันไม่ชำรุด
 }
 if (filterStatus === 'down' && downCount === 0) continue; // กรองออกถ้าเลือก "เคยชำรุด" แต่นับเป็น 0
 if (filterStatus === 'clean' && downCount > 0) continue; // กรองออกถ้าเลือก "ไม่เคยชำรุด" แต่นับ > 0
 if (search && !dev.toLowerCase().includes(search)) continue;
 
-const warrantyStatus = getWarrantyStatus(assetInfo?.warrantyEnd);
+// 💥 MODIFIED (5): ลบ warrantyStatus ออกจาก summary.push
 
-summary.push({
-device: dev,
-count: downCount,
-brokenDate: latestRecord?.brokenDate || '-',
-fixedDate: latestRecord?.fixedDate || '-',
-status: isCurrentlyDown ? '❎ ชำรุด' : '✅ ใช้งานได้',
-latestDescription: latestRecord?.description || '-',
-latestBrokenDuration: latestBrokenDuration,
-latestBrokenDays: latestBrokenDays,
-warrantyStatus: warrantyStatus // 💥 เพิ่มข้อมูลประกัน
-});
-}
+       summary.push({
+            device: dev,
+            count: downCount,
+            remaining: remainingDownCount, // 💥 NEW: คงเหลือ
+            brokenDate: earliestBrokenDate, // 💥 MODIFIED: ใช้วันที่ชำรุดที่เก่าสุดที่ยังชำรุดอยู่
+            fixedDate: latestFixedDate,
+            status: currentStatusDisplay,
+            latestDescription: latestRecord?.description || '-',
+            latestBrokenDuration: latestBrokenDuration,
+            latestBrokenDays: latestBrokenDays,
+        });
+    }
 
 // --- Sorting Logic ---
 summary.sort((a, b) => {
-const countSort = sortOrder === 'desc' ? b.count - a.count : a.count - b.count;
-
-if (countSort !== 0) {
-return countSort;
-}
-
-// ถ้า Count เท่ากัน ให้เรียงตามระยะเวลาชำรุดล่าสุด (มากไปน้อย)
-return b.latestBrokenDays - a.latestBrokenDays; 
+    // เรียงตามจำนวนครั้งชำรุด (ทั้งหมด)
+    const countSort = sortOrder === 'desc' ? b.count - a.count : a.count - b.count;
+    
+    if (countSort !== 0) {
+        return countSort;
+    }
+    
+    // ถ้า Count เท่ากัน ให้เรียงตามระยะเวลาชำรุดล่าสุด (มากไปน้อย)
+    return b.latestBrokenDays - a.latestBrokenDays; 
 });
 
 // --- Pagination and Rendering ---
@@ -939,19 +962,17 @@ const tbody = document.getElementById('summaryBody');
 tbody.innerHTML = '';
 
 if (summary.length === 0) {
-tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-gray-400">ไม่พบข้อมูลอุปกรณ์ตามเงื่อนไขที่เลือก</td></tr>';
+tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">ไม่พบข้อมูลอุปกรณ์ตามเงื่อนไขที่เลือก</td></tr>'; // 💥 FIX: colspan เหลือ 7
 } else {
 pageData.forEach(s => {
 const tr = document.createElement('tr');
 tr.className = 'border-t border-white/10 hover:bg-white/5 cursor-pointer'; 
 tr.innerHTML = `
                <td class="text-left font-medium">${escapeHtml(s.device)}</td>
-               <td><span class="${s.count > 0 ? 'tag tag-bad' : 'tag tag-ok'}">${s.count}</span></td>
-               <td>${s.brokenDate}</td>
+               <td><span class="${s.count > 0 ? 'tag tag-bad' : 'tag tag-ok'}">${s.count} / ${s.remaining}</span></td> <td>${s.brokenDate}</td>
                <td>${s.fixedDate}</td>
                <td><span class="${s.status.includes('ชำรุด') ? 'tag tag-bad' : 'tag tag-ok'}">${s.status}</span></td>
                <td class="font-semibold text-center">${s.latestBrokenDuration}</td>
-               <td>${getWarrantyStatusHTML(s.warrantyStatus)}</td> 
                <td class="text-left text-sm text-gray-300 max-w-[200px] whitespace-normal">${escapeHtml(s.latestDescription || '-')}</td>
            `;
 tr.addEventListener('click', () => window.openForm(s.device)); 
@@ -970,8 +991,6 @@ document.getElementById('pagination').innerHTML = `
 
 updateChart(summary);
 };
-
-// 💥💥💥 (ลบ) ฟังก์ชัน `updateAllAffectedDevicesSummary` เดิมถูกลบออกไป 💥💥💥
 
 
 function updateChart(summary) {
@@ -1354,6 +1373,8 @@ reader.readAsArrayBuffer(file);
 event.target.value = null; // เคลียร์ไฟล์ที่เลือก
 };
 
+
+// 💥💥💥 FUNCTION `exportAllDataExcel` (แก้ไข) 💥💥💥
 window.exportAllDataExcel = async function() {
 const siteData = sites[currentSiteKey];
 if (!siteData || siteData.devices.length === 0) {
@@ -1369,7 +1390,7 @@ docsSnap.forEach(d => dataMap[d.id] = d.data());
 const recordsHeader = [
 'Timestamp', 
 'ชื่ออุปกรณ์', 
-'การชำรุด (ครั้งที่)', 
+'ลำดับการชำรุด (ครั้งที่ N)', // 💥 NEW: เพิ่มคอลัมน์ลำดับ
 'วันที่ชำรุด', 
 'วันที่ซ่อมแซม', 
 'ระยะเวลาชำรุด', 
@@ -1377,7 +1398,7 @@ const recordsHeader = [
 'คำอธิบาย', 
 'ผู้บันทึก' 
 ];
-const recordsData = [recordsHeader]; 
+const recordsData = [recordsHeader]; // เริ่มด้วย Header
 
 // --- 💥 Sheet 2: Asset Information (ข้อมูลทรัพย์สิน) ---
 const assetHeader = [
@@ -1395,6 +1416,7 @@ const assetData = [assetHeader]; // เริ่มด้วย Header
 for (const devName of siteData.devices) {
 const docData = dataMap[devName];
 
+// --- 1. เตรียมข้อมูลสำหรับ Sheet 2 (Assets) ---
 const assetInfo = docData?.assetInfo || {}; // ดึงข้อมูลทรัพย์สิน
 
 // คำนวณสถานะประกันเพื่อแสดงผล
@@ -1424,48 +1446,48 @@ continue; // ข้ามไปอุปกรณ์ถัดไปถ้าไ�
 }
 
 const records = docData.records || [];
-        
-        // 💥 NEW: เรียงลำดับ records จากเก่าไปใหม่ (เพื่อคำนวณลำดับชำรุด)
-        records.sort((a, b) => a.ts - b.ts);
-        
-        let downCount = 0; // ตัวนับลำดับการชำรุด
 
-        // วนลูปทุกประวัติของอุปกรณ์นี้
-        records.forEach(r => {
-            let duration = '-';
-            let sequenceNumber = '-'; // ค่าเริ่มต้น
+// 💥 NEW: เรียงลำดับ records จากเก่าไปใหม่ (เพื่อคำนวณลำดับชำรุด)
+records.sort((a, b) => a.ts - b.ts);
 
-            // 💥 NEW: ตรวจสอบและนับเฉพาะรายการที่ถูก 'counted' (ถือเป็นการชำรุดที่ถูกนับ)
-            if (r.counted) {
-                 downCount++; 
-                 sequenceNumber = downCount;
-            }
+let downCount = 0; // ตัวนับลำดับการชำรุด (เริ่มใหม่สำหรับแต่ละอุปกรณ์)
 
-            if (r.brokenDate) {
-                if (r.fixedDate) {
-                    const days = calculateDaysDifference(r.brokenDate, r.fixedDate);
-                    duration = formatDuration(days);
-                } else if (r.status === 'down') {
-                    const days = calculateDaysDifference(r.brokenDate, null); 
-                    duration = formatDuration(days) + ' (ชำรุด)';
-                }
-            }
-            
-            // เพิ่ม 1 แถวต่อ 1 record ลงใน recordsData
-            recordsData.push([
-                r.ts || '-', 
-                devName,
-                sequenceNumber, 
-                // 💥 FIX: แปลง - เป็น / 💥
-                (r.brokenDate || '-').replace(/-/g, '/'), 
-                (r.fixedDate || '-').replace(/-/g, '/'),  
-                duration, 
-                r.status === 'down' ? 'ชำรุด' : 'ใช้งานได้',
-                r.description || '-',
-                r.user || '-', 
-            ]);
-        });
-    }
+// วนลูปทุกประวัติของอุปกรณ์นี้
+records.forEach(r => {
+let duration = '-';
+let sequenceNumber = '-'; // ค่าเริ่มต้น
+
+// 💥 NEW: ตรวจสอบและนับเฉพาะรายการที่ถูก 'counted' (ถือเป็นการชำรุดที่ถูกนับ)
+if (r.counted) {
+downCount++; 
+sequenceNumber = downCount; // ครั้งที่ 1, 2, 3...
+}
+
+if (r.brokenDate) {
+if (r.fixedDate) {
+const days = calculateDaysDifference(r.brokenDate, r.fixedDate);
+duration = formatDuration(days);
+} else if (r.status === 'down') {
+const days = calculateDaysDifference(r.brokenDate, null); 
+duration = formatDuration(days) + ' (ชำรุด)';
+}
+}
+
+// เพิ่ม 1 แถวต่อ 1 record ลงใน recordsData
+recordsData.push([
+r.ts || '-', 
+devName,
+sequenceNumber, // 💥 NEW: ใส่ลำดับที่คำนวณได้
+// 💥 FIX: แปลง - เป็น / 💥
+(r.brokenDate || '-').replace(/-/g, '/'), 
+(r.fixedDate || '-').replace(/-/g, '/'),  
+duration, 
+r.status === 'down' ? 'ชำรุด' : 'ใช้งานได้',
+r.description || '-',
+r.user || '-', 
+]);
+});
+}
 
 // --- ตรวจสอบว่ามีข้อมูลให้ส่งออกหรือไม่ ---
 if (recordsData.length <= 1 && assetData.length <= 1) {
@@ -1646,10 +1668,3 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 
 };
-
-
-
-
-
-
-
