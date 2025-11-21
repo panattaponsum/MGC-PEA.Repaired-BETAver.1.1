@@ -285,18 +285,25 @@ auth.signOut();
 // =========================================================================
 
 window.openForm = async function(deviceName) {
-currentDevice = deviceName; editIndex = -1;
-document.getElementById('formTitle').textContent = `บันทึกข้อมูล: ${deviceName}`;
-document.getElementById('overlay').style.display = 'block';
-document.getElementById('formModal').style.display = 'flex'; // 💥 FIX: ใช้ flex
-document.getElementById('editHint').classList.add('hidden');
+    currentDevice = deviceName; 
+    editIndex = -1;
+    document.getElementById('formTitle').textContent = `บันทึกข้อมูล: ${deviceName}`;
+    document.getElementById('overlay').style.display = 'block';
+    document.getElementById('formModal').style.display = 'flex';
+    document.getElementById('editHint').classList.add('hidden');
 
-// รีเซ็ตหน้าจอข้อมูลทรัพย์สิน
-document.getElementById('warrantyStatusDisplay').innerHTML = 'กำลังโหลด...';
-document.getElementById('assetInfoDisplay').innerHTML = '';
+    // รีเซ็ตหน้าจอข้อมูลทรัพย์สิน
+    document.getElementById('warrantyStatusDisplay').innerHTML = 'กำลังโหลด...';
+    document.getElementById('assetInfoDisplay').innerHTML = '';
 
-clearForm(); 
-await loadHistory(); // 💡 loadHistory ถูกแก้ไขให้ดึงข้อมูลทรัพย์สินมาด้วย
+    clearForm(); 
+
+    // 💥 NEW LOGIC: บังคับสถานะเริ่มต้นสำหรับรายการใหม่ 💥
+    const statusSelect = document.getElementById('status');
+    statusSelect.value = 'down';   // บังคับเป็นชำรุด
+    statusSelect.disabled = true;  // 🔒 ล็อคห้ามแก้ไข (User จะเปลี่ยนเป็น ok ไม่ได้)
+
+    await loadHistory(); 
 }
 
 window.closeForm = function() {
@@ -342,6 +349,14 @@ const statusVal = document.getElementById('status').value;
 const brokenDate = document.getElementById('brokenDate').value;
 const fixedDate = document.getElementById('fixedDate').value;
 
+if (editIndex < 0 && statusVal === 'ok') {
+        Swal.fire({
+            title: "ไม่อนุญาต", 
+            text: "การเพิ่มรายการใหม่ต้องเป็นสถานะ 'ชำรุด' เท่านั้น \n(หากต้องการบันทึกว่าซ่อมเสร็จแล้ว กรุณากด 'แก้ไข' ที่รายการชำรุดเดิม)", 
+            icon: "warning"
+        });
+        return false;
+    }
 // VALIDATION: ห้ามวันที่ชำรุด/ซ่อมแซมอยู่หลังวันที่ปัจจุบัน
 const now = new Date();
 now.setHours(0, 0, 0, 0); 
@@ -654,31 +669,29 @@ window.updateDeviceStatusOverlays(currentSiteKey);
 }
 
 window.editRecord = async function(ts) {
-// 💥 MODIFIED: Check Auth (ปุ่มควรจะ disable อยู่แล้ว) 💥
-if (!currentUser) return;
+    if (!currentUser) return;
+    if (!currentDevice) return;
+    let records = await getDeviceRecords(currentSiteKey, currentDevice);
 
-if (!currentDevice) return;
-let records = await getDeviceRecords(currentSiteKey, currentDevice);
+    const idx = records.findIndex(r => String(r.ts) === String(ts));
+    if (idx < 0) return;
 
-const idx = records.findIndex(r => String(r.ts) === String(ts));
-if (idx < 0) return;
+    const r = records[idx];
+    
+    const statusSelect = document.getElementById('status');
+    statusSelect.value = r.status || 'down';
+    
+    // 💥 NEW LOGIC: ปลดล็อคสถานะเมื่อทำการแก้ไข 💥
+    statusSelect.disabled = false; // 🔓 อนุญาตให้เปลี่ยนสถานะได้ (เพื่อแก้เป็น ใช้งานได้)
 
-const r = records[idx];
-document.getElementById('status').value = r.status || 'down';
-document.getElementById('brokenDate').value = r.brokenDate || '';
-document.getElementById('fixedDate').value = r.fixedDate || '';
-document.getElementById('description').value = r.description || '';
-editIndex = idx;
-document.getElementById('editHint').classList.remove('hidden');
+    document.getElementById('brokenDate').value = r.brokenDate || '';
+    document.getElementById('fixedDate').value = r.fixedDate || '';
+    document.getElementById('description').value = r.description || '';
+    
+    editIndex = idx;
+    document.getElementById('editHint').classList.remove('hidden');
 };
 
-// =========================================================================
-// 💥 NEW: Asset Modal Functions
-// =========================================================================
-
-/**
-* เปิด Modal ข้อมูลทรัพย์สิน
-*/
 window.openAssetModal = async function() {
 if (!currentDevice) return;
 
@@ -1669,6 +1682,7 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 
 };
+
 
 
 
