@@ -595,7 +595,7 @@ div.innerHTML = `
            <div class="flex justify-between items-start border-b border-gray-700 pb-2 mb-2">
                <div class="text-lg font-bold text-white">
                    <span class="tag ${statusClass}">${statusText}</span>
-					<span class="ml-2 text-base text-gray-300">|ครั้งที่ ${recordSequence}</span>
+					<span class="ml-2 text-base text-gray-300"> | ครั้งที่ ${recordSequence}</span>
                </div>
                <div class="text-sm text-gray-400">
                    บันทึกโดย: <span class="font-semibold text-white">${escapeHtml(r.user || 'ไม่ระบุ')}</span>
@@ -921,9 +921,9 @@ if (filterStatus === 'currently-down' && remainingDownCount === 0) {
 if (filterStatus === 'down' && downCount === 0) continue; // กรองออกถ้าเลือก "เคยชำรุด" แต่นับเป็น 0
 if (filterStatus === 'clean' && downCount > 0) continue; // กรองออกถ้าเลือก "ไม่เคยชำรุด" แต่นับ > 0
 if (search && !dev.toLowerCase().includes(search)) continue;
-
-// 💥 MODIFIED (5): ลบ warrantyStatus ออกจาก summary.push
-
+if (currentStatusDisplay === 'ok') {
+            currentStatusDisplay = '✅ ใช้งานได้';
+        }
        summary.push({
             device: dev,
             count: downCount,
@@ -1669,5 +1669,6 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 
 };
+
 
 
