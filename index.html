@@ -165,8 +165,9 @@ h1,h2,h3,th {
 
     <span class="spacer"></span>
    <button class="btn btn-rgb" onclick="showSummary()">📊 สรุปผล</button>
-    <button class="btn btn-brand" onclick="exportAllDataExcel()">📤 ส่งออก Excel</button>
-    <label class="btn btn-warning" id="importButtonLabel">📥 นำเข้า Excel
+	  <button onclick="window.printReport()" class="btn bg-blue-600 hover:bg-blue-700 text-white">🖨️ Report PDF</button>
+    <button class="btn btn-brand" onclick="exportAllDataExcel()">📤 Export</button>
+    <label class="btn btn-warning" id="importButtonLabel">📥 Import
       <input type="file" accept=".xlsx" onchange="importData(event)" class="hidden"/>
     </label>
     <button class="btn btn-danger" onclick="clearAllDevices()" id="clearAllButton">🗑️ ล้างข้อมูลทั้งหมด</button>
@@ -446,4 +447,5 @@ h1,h2,h3,th {
 <script src="main.js"></script>
 </body>
 </html>
+
 
