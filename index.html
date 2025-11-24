@@ -161,9 +161,6 @@ h1,h2,h3,th {
             <span id="userNameDisplay" class="text-sm text-gray-200 font-medium"></span>
             <button id="logoutButton" class="btn btn-ghost ml-2 text-gray-400 text-xs">🚪 ออกจากระบบ</button>
         </div>
-    </div>
-
-    <span class="spacer"></span>
    <button class="btn btn-rgb" onclick="showSummary()">📊 สรุปผล</button>
 	  <button onclick="window.printReport()" class="btn bg-blue-600 hover:bg-blue-700 text-white">🖨️ Report PDF</button>
     <button class="btn btn-brand" onclick="exportAllDataExcel()">📤 Export</button>
@@ -172,6 +169,7 @@ h1,h2,h3,th {
     </label>
     <button class="btn btn-danger" onclick="clearAllDevices()" id="clearAllButton">🗑️ ล้างข้อมูลทั้งหมด</button>
   </div>
+</div>
     
 <div id="map-ko-phaluay" class="map-container" style="position:relative;">
   <img class="device-img" src="phaluay.png" usemap="#netmap" width="1903" height="1041" alt="Topology" />
@@ -447,5 +445,6 @@ h1,h2,h3,th {
 <script src="main.js"></script>
 </body>
 </html>
+
 
 
