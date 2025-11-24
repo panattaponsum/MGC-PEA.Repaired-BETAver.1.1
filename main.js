@@ -480,9 +480,18 @@ await loadHistory();
 window.updateDeviceSummary(); 
 window.updateDeviceStatusOverlays(currentSiteKey); 
 
-// 💥 MODIFIED: ใช้ SweetAlert2 💥
-Swal.fire("บันทึกเรียบร้อย", "", "success");
-return true;
+// 💥 NEW: ส่งไลน์ถ้าเป็นการแจ้งชำรุดใหม่
+    if (statusVal === 'down' && editIndex < 0) {
+        sendLineNotify(
+            currentDevice, 
+            document.getElementById('description').value, 
+            document.getElementById('userName').value
+        );
+    }
+
+    // 💥 MODIFIED: ใช้ SweetAlert2 💥
+    Swal.fire("บันทึกเรียบร้อย", "", "success");
+    return true;
 };
 
 window.clearCurrentDevice = async function() {
@@ -1692,10 +1701,143 @@ Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพ�
 }
 });
 
+// 💥💥💥 PDF REPORT FUNCTION (Print Mode) 💥💥💥
+window.printReport = async function() {
+    const siteData = sites[currentSiteKey];
+    
+    // ดึงข้อมูลล่าสุดมาคำนวณ
+    const docsSnap = await getSiteCollection(currentSiteKey).get();
+    const dataMap = {};
+    docsSnap.forEach(d => dataMap[d.id] = d.data());
+
+    let reportRows = '';
+    let itemNo = 1;
+
+    // สร้างตารางข้อมูล
+    for (const dev of siteData.devices) {
+        const docData = dataMap[dev] || {};
+        const records = docData.records || [];
+        records.sort((a, b) => a.ts - b.ts);
+        
+        // คำนวณสถานะ (Logic เดียวกับ updateDeviceSummary)
+        const isUnresolved = (r) => r.status === 'down' && (!r.fixedDate || r.fixedDate === '' || r.fixedDate === '-');
+        const remainingDownRecords = records.filter(r => isUnresolved(r));
+        const remaining = remainingDownRecords.length;
+        
+        const assetInfo = docData.assetInfo || {};
+        const statusText = remaining > 0 ? '<span style="color:red; font-weight:bold;">❎ ชำรุด</span>' : '<span style="color:green;">✅ ใช้งานได้</span>';
+        
+        // หาวันที่ชำรุดล่าสุด/เก่าสุดตาม Logic
+        let dateInfo = '-';
+        if (remaining > 0) {
+            const oldest = remainingDownRecords[0]; // ตัวเก่าสุดที่ค้าง
+            dateInfo = `ชำรุดเมื่อ: ${oldest.brokenDate} (ค้าง ${remaining} รายการ)`;
+        } else if (records.length > 0) {
+            const last = records[records.length-1];
+            if (last.fixedDate) dateInfo = `ซ่อมล่าสุด: ${last.fixedDate}`;
+        }
+
+        reportRows += `
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px; text-align: center;">${itemNo++}</td>
+                <td style="padding: 8px;">
+                    <strong>${dev}</strong><br>
+                    <span style="font-size: 12px; color: #666;">Model: ${assetInfo.model || '-'} | S/N: ${assetInfo.serial || '-'}</span>
+                </td>
+                <td style="padding: 8px; text-align: center;">${statusText}</td>
+                <td style="padding: 8px; text-align: center;">${docData.downCount || 0}</td>
+                <td style="padding: 8px;">${dateInfo}</td>
+            </tr>
+        `;
+    }
+
+    // สร้างหน้า HTML สำหรับพิมพ์
+    const printWindow = window.open('', '', 'height=800,width=1000');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>รายงานสถานะอุปกรณ์ - ${siteData.name}</title>
+            <style>
+                body { font-family: 'Sarabun', sans-serif; padding: 20px; }
+                h1 { text-align: center; margin-bottom: 5px; }
+                h3 { text-align: center; color: #555; margin-top: 0; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background-color: #f2f2f2; border: 1px solid #ddd; padding: 10px; text-align: left; }
+                td { border: 1px solid #ddd; }
+                .footer { margin-top: 30px; text-align: right; font-size: 12px; color: #888; }
+                @media print {
+                    .no-print { display: none; }
+                    body { -webkit-print-color-adjust: exact; }
+                }
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+        </head>
+        <body>
+            <h1>📄 รายงานสรุปสถานะอุปกรณ์</h1>
+            <h3>โครงการ: ${siteData.name}</h3>
+            <p><strong>วันที่ออกรายงาน:</strong> ${new Date().toLocaleString('th-TH')}</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px; text-align: center;">ลำดับ</th>
+                        <th>ชื่ออุปกรณ์ / รายละเอียดทรัพย์สิน</th>
+                        <th style="width: 100px; text-align: center;">สถานะ</th>
+                        <th style="width: 80px; text-align: center;">ครั้งที่ชำรุด</th>
+                        <th>รายละเอียดวันที่</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${reportRows}
+                </tbody>
+            </table>
+
+            <div class="footer">
+                ออกรายงานโดยระบบ Microgrid Maintenance Tracking<br>
+                ผู้พิมพ์: ${currentUser ? currentUser.email : 'Guest'}
+            </div>
+
+            <script>
+                // สั่งพิมพ์อัตโนมัติเมื่อโหลดเสร็จ
+                window.onload = function() { window.print(); window.close(); }
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+};
+// 💥💥💥 LINE NOTIFY FUNCTION 💥💥💥
+async function sendLineNotify(deviceName, description, user) {
+    // 1. ใส่ URL ที่ได้จาก Google Apps Script ตรงนี้
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzgCePpuzZkhyklQwyCmdUD-d0tFGiT4AA34MC5gFte9Yt4NASAD692VBOPHIymAFInsg/exec"; 
+
+    const message = `
+🚨 แจ้งเตือนอุปกรณ์ชำรุด
+📍 สถานที่: ${sites[currentSiteKey].name}
+ex อุปกรณ์: ${deviceName}
+📝 อาการ: ${description || '-'}
+👤 ผู้แจ้ง: ${user}
+🕒 เวลา: ${new Date().toLocaleString('th-TH')}
+    `;
+
+    try {
+        // ส่งข้อมูลไปที่ Google Script (เพื่อเลี่ยง CORS)
+        await fetch(GAS_URL, {
+            method: 'POST',
+            mode: 'no-cors', // สำคัญ: เพื่อไม่ให้ Browser บล็อก
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `message=${encodeURIComponent(message)}`
+        });
+        console.log("LINE Notification sent!");
+    } catch (e) {
+        console.error("Failed to send LINE:", e);
+    }
+}
 window.onload = function() {
 try { imageMapResize(); } catch (e) {}
-
+	
 };
+
 
 
 
