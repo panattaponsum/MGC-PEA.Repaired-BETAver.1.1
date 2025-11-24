@@ -883,115 +883,109 @@ endEl.addEventListener('change', updateAssetWarrantyStatusField);
 }
 
 window.updateDeviceSummary = async function() {
-const siteData = sites[currentSiteKey];
-if (!siteData) return;
+    const siteData = sites[currentSiteKey];
+    if (!siteData) return;
 
-// Filter/Sort Parameters
-const search = document.getElementById('searchInput').value.toLowerCase();
-const sortOrder = document.getElementById('sortOrder').value;
-const filterStatus = document.getElementById('filterStatus').value;
-const from = document.getElementById('fromDate').value;
-const to = document.getElementById('toDate').value;
+    // Filter/Sort Parameters
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const sortOrder = document.getElementById('sortOrder').value;
+    const filterStatus = document.getElementById('filterStatus').value;
+    const from = document.getElementById('fromDate').value;
+    const to = document.getElementById('toDate').value;
 
-// Fetch all documents for the current site
-const docsSnap = await getSiteCollection(currentSiteKey).get({ source: 'server' }); 
-const dataMap = {}; 
-docsSnap.forEach(d => dataMap[d.id] = d.data());
+    const docsSnap = await getSiteCollection(currentSiteKey).get({ source: 'server' }); 
+    const dataMap = {}; 
+    docsSnap.forEach(d => dataMap[d.id] = d.data());
 
-let summary = [];
+    let summary = [];
 
-for (const dev of siteData.devices) {
-const docData = dataMap[dev]; 
-const records = docData?.records || [];
-// 💥 ดึงข้อมูลทรัพย์สิน
-const assetInfo = docData?.assetInfo;
-
-// Find latest record by timestamp (for filtering/latest description)
-let latestRecord = null;
-if (records.length > 0) {
-// เรียงจากเก่าไปใหม่ (ts น้อยไปมาก)
-records.sort((a, b) => a.ts - b.ts); 
-latestRecord = records[records.length - 1]; // Get the newest record from the end
-}
-
-let downCount = docData?.downCount || 0; // จำนวนครั้งชำรุดทั้งหมด
-// 💥 MODIFIED (3): คำนวณคงเหลือ (Remaining DownCount)
-const remainingDownRecords = records.filter(r => r.status === 'down' && !r.fixedDate);
-const remainingDownCount = remainingDownRecords.length;
-
-// --- Downtime Calculation for Summary Table ---
-let latestBrokenDuration = '-';
-let latestBrokenDays = 0;
-// 💥 MODIFIED (4): ดึงวันที่ชำรุดที่เก่าที่สุดที่ยังชำรุดอยู่
-let earliestBrokenDate = '-';
-let latestFixedDate = latestRecord?.fixedDate || '-';
-let currentStatusDisplay = docData?.currentStatus || 'ok';
-const isCurrentlyDown = currentStatusDisplay === 'down';
-
-
-if (remainingDownCount > 0) {
-    // ใช้วันที่ชำรุดจากรายการที่เก่าที่สุดในกลุ่มที่ยังไม่ถูกซ่อม
-    const oldestRemainingRecord = remainingDownRecords.reduce((oldest, current) => {
-        if (!oldest || current.ts < oldest.ts) return current;
-        return oldest;
-    }, null);
-
-    earliestBrokenDate = oldestRemainingRecord?.brokenDate || '-';
-    latestFixedDate = '-'; // หากยังมีรายการค้างอยู่ วันที่ซ่อมล่าสุดคือ '-'
-
-    // คำนวณระยะเวลาชำรุด (ของรายการที่เก่าที่สุดที่ยังชำรุดอยู่)
-    latestBrokenDays = calculateDaysDifference(earliestBrokenDate, null); // null = วันที่ปัจจุบัน
-    latestBrokenDuration = formatDuration(latestBrokenDays) + ' (ยังไม่ได้แก้ไข)';
-    currentStatusDisplay = '❎ ชำรุด';
-    
-} else if (latestRecord && latestRecord.brokenDate) {
-    // ถ้าไม่มีรายการค้างอยู่ ให้ใช้รายการล่าสุดที่ถูกซ่อมแล้ว
-    earliestBrokenDate = latestRecord.brokenDate;
-    
-    if (latestRecord.fixedDate) {
-         latestBrokenDays = calculateDaysDifference(latestRecord.brokenDate, latestRecord.fixedDate);
-         latestBrokenDuration = formatDuration(latestBrokenDays);
-    } else {
-         // กรณีสุดท้าย: มีแค่บันทึก down ที่ถูกนับแล้ว แต่ไม่มีบันทึก ok ตามมา (ไม่ควรเกิดขึ้นถ้าใช้ saveData ถูกต้อง)
-         latestBrokenDuration = '-'; 
-    }
-} else {
-    // ไม่มี records เลย
-}
+    for (const dev of siteData.devices) {
+        const docData = dataMap[dev]; 
+        const records = docData?.records || [];
         
-// 💡 การกรองวันที่ (Date Filtering)
-let dateFilterSource = earliestBrokenDate !== '-' ? earliestBrokenDate : latestRecord?.brokenDate;
-
-
-if (dateFilterSource && dateFilterSource !== '-') {
-    const latestTs = new Date(dateFilterSource).getTime();
-    
-    if (from) {
-        const fromTs = new Date(from).getTime();
-        if (latestTs < fromTs) continue;
-    }
-    if (to) {
-        const toTs = new Date(to).getTime() + (1000 * 60 * 60 * 24); 
-        if (latestTs >= toTs) continue;
-    }
-}        
-// --- ตรรกะการกรองสถานะ (Status Filtering) ---
-// 💡 FIX: กรองตามสถานะที่เลือกอย่างถูกต้อง
-if (filterStatus === 'currently-down' && remainingDownCount === 0) {
-    continue; // กรองออกถ้าเลือก "ชำรุดอยู่" แต่มันไม่ชำรุด
-}
-if (filterStatus === 'down' && downCount === 0) continue; // กรองออกถ้าเลือก "เคยชำรุด" แต่นับเป็น 0
-if (filterStatus === 'clean' && downCount > 0) continue; // กรองออกถ้าเลือก "ไม่เคยชำรุด" แต่นับ > 0
-if (search && !dev.toLowerCase().includes(search)) continue;
-if (currentStatusDisplay === 'ok') {
-            currentStatusDisplay = '✅ ใช้งานได้';
+        // Find latest record by timestamp
+        let latestRecord = null;
+        if (records.length > 0) {
+            records.sort((a, b) => a.ts - b.ts); 
+            latestRecord = records[records.length - 1]; 
         }
-       summary.push({
+
+        let downCount = docData?.downCount || 0; 
+
+        // 💥 NEW: คำนวณคงเหลือ (รายการที่ status='down' และไม่มี fixedDate)
+        const remainingDownRecords = records.filter(r => r.status === 'down' && !r.fixedDate);
+        const remainingDownCount = remainingDownRecords.length;
+
+        // --- Downtime Calculation & Display Logic ---
+        let latestBrokenDuration = '-';
+        let latestBrokenDays = 0;
+        let earliestBrokenDate = '-';
+        let latestFixedDate = '-';
+        let currentStatusDisplay = 'ok';
+
+        // 💥 NEW LOGIC: ตรวจสอบว่ามีรายการค้างหรือไม่?
+        if (remainingDownCount > 0) {
+            // กรณี 1: มีรายการชำรุดค้างอยู่ (อย่างน้อย 1 รายการ)
+            currentStatusDisplay = '❎ ชำรุด';
+
+            // หา "วันที่ชำรุด" ที่เก่าที่สุด ของรายการที่ยังไม่ซ่อม
+            // เรียง remaining จากเก่าไปใหม่ (ts น้อย -> มาก)
+            remainingDownRecords.sort((a, b) => a.ts - b.ts);
+            const oldestIssue = remainingDownRecords[0]; // ตัวแรกคือตัวที่เก่าที่สุด
+
+            earliestBrokenDate = oldestIssue.brokenDate || '-';
+            
+            // วันที่ซ่อมแซม: บังคับเป็น '-' จนกว่าจะซ่อมครบทุกรายการ
+            latestFixedDate = '-'; 
+
+            // คำนวณระยะเวลาจากตัวที่เก่าที่สุดถึงปัจจุบัน
+            latestBrokenDays = calculateDaysDifference(earliestBrokenDate, null);
+            latestBrokenDuration = formatDuration(latestBrokenDays) + ' (ยังไม่ได้แก้ไข)';
+
+        } else {
+            // กรณี 2: ซ่อมครบหมดแล้ว (ใช้งานได้)
+            currentStatusDisplay = '✅ ใช้งานได้'; // หรือจะใช้ 'ok' ตามเดิมก็ได้ แต่คุณอยากให้แปลงเป็นคำพูด
+
+            if (latestRecord && latestRecord.brokenDate) {
+                 // แสดงประวัติล่าสุดที่จบไปแล้ว
+                 earliestBrokenDate = latestRecord.brokenDate;
+                 latestFixedDate = latestRecord.fixedDate || '-'; // ควรจะมีวันที่ซ่อม
+
+                 if (latestRecord.fixedDate) {
+                      latestBrokenDays = calculateDaysDifference(latestRecord.brokenDate, latestRecord.fixedDate);
+                      latestBrokenDuration = formatDuration(latestBrokenDays);
+                 }
+            }
+        }
+        
+        // --- การกรองข้อมูล (Filter) ---
+        // ใช้ earliestBrokenDate ในการกรองช่วงเวลา ถ้ามันมีค่า
+        let dateFilterSource = earliestBrokenDate !== '-' ? earliestBrokenDate : (latestRecord?.brokenDate);
+
+        if (dateFilterSource && dateFilterSource !== '-') {
+            const latestTs = new Date(dateFilterSource).getTime();
+            if (from) {
+                const fromTs = new Date(from).getTime();
+                if (latestTs < fromTs) continue;
+            }
+            if (to) {
+                const toTs = new Date(to).getTime() + (1000 * 60 * 60 * 24); 
+                if (latestTs >= toTs) continue;
+            }
+        }        
+
+        // Filter Status
+        if (filterStatus === 'currently-down' && remainingDownCount === 0) continue; 
+        if (filterStatus === 'down' && downCount === 0) continue; 
+        if (filterStatus === 'clean' && downCount > 0) continue; 
+        if (search && !dev.toLowerCase().includes(search)) continue;
+
+        summary.push({
             device: dev,
             count: downCount,
-            remaining: remainingDownCount, // 💥 NEW: คงเหลือ
-            brokenDate: earliestBrokenDate, // 💥 MODIFIED: ใช้วันที่ชำรุดที่เก่าสุดที่ยังชำรุดอยู่
-            fixedDate: latestFixedDate,
+            remaining: remainingDownCount, // แสดงจำนวนคงเหลือ
+            brokenDate: earliestBrokenDate, // วันที่ชำรุด (เก่าสุดที่ค้างอยู่)
+            fixedDate: latestFixedDate, // วันที่ซ่อม (จะเป็น - ถ้ายังมีคงเหลือ)
             status: currentStatusDisplay,
             latestDescription: latestRecord?.description || '-',
             latestBrokenDuration: latestBrokenDuration,
@@ -999,60 +993,54 @@ if (currentStatusDisplay === 'ok') {
         });
     }
 
-// --- Sorting Logic ---
-summary.sort((a, b) => {
-    // เรียงตามจำนวนครั้งชำรุด (ทั้งหมด)
-    const countSort = sortOrder === 'desc' ? b.count - a.count : a.count - b.count;
-    
-    if (countSort !== 0) {
-        return countSort;
+    // --- Sorting Logic ---
+    summary.sort((a, b) => {
+        const countSort = sortOrder === 'desc' ? b.count - a.count : a.count - b.count;
+        if (countSort !== 0) return countSort;
+        return b.latestBrokenDays - a.latestBrokenDays; 
+    });
+
+    // --- Rendering ---
+    const pageSize = 10;
+    const totalPages = Math.max(1, Math.ceil(summary.length / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pageData = summary.slice(startIndex, endIndex);
+
+    const tbody = document.getElementById('summaryBody');
+    tbody.innerHTML = '';
+
+    if (summary.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">ไม่พบข้อมูลอุปกรณ์ตามเงื่อนไขที่เลือก</td></tr>'; 
+    } else {
+        pageData.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-t border-white/10 hover:bg-white/5 cursor-pointer'; 
+            tr.innerHTML = `
+                <td class="text-left font-medium">${escapeHtml(s.device)}</td>
+                <td><span class="${s.count > 0 ? 'tag tag-bad' : 'tag tag-ok'}">${s.count} / ${s.remaining}</span></td> 
+                <td>${s.brokenDate}</td>
+                <td>${s.fixedDate}</td>
+                <td><span class="${s.status.includes('ชำรุด') ? 'tag tag-bad' : 'tag tag-ok'}">${s.status}</span></td>
+                <td class="font-semibold text-center">${s.latestBrokenDuration}</td>
+                <td class="text-left text-sm text-gray-300 max-w-[200px] whitespace-normal">${escapeHtml(s.latestDescription || '-')}</td>
+            `;
+            tr.addEventListener('click', () => window.openForm(s.device)); 
+            tbody.appendChild(tr);
+        });
     }
-    
-    // ถ้า Count เท่ากัน ให้เรียงตามระยะเวลาชำรุดล่าสุด (มากไปน้อย)
-    return b.latestBrokenDays - a.latestBrokenDays; 
-});
 
-// --- Pagination and Rendering ---
-const pageSize = 10;
-const totalPages = Math.max(1, Math.ceil(summary.length / pageSize));
-if (currentPage > totalPages) currentPage = totalPages;
-const startIndex = (currentPage - 1) * pageSize;
-const endIndex = startIndex + pageSize;
-const pageData = summary.slice(startIndex, endIndex);
+    // Pagination controls
+    document.getElementById('pagination').innerHTML = `
+        <div class="flex justify-center items-center gap-2 mt-2">
+            <button class="btn" onclick="changePage(-1)" ${currentPage===1?'disabled':''}>⬅️ ก่อนหน้า</button>
+            <span>หน้า ${currentPage} / ${totalPages}</span>
+            <button class="btn" onclick="changePage(1)" ${currentPage===totalPages?'disabled':''}>ถัดไป ➡️</button>
+        </div>
+    `;
 
-const tbody = document.getElementById('summaryBody');
-tbody.innerHTML = '';
-
-if (summary.length === 0) {
-tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">ไม่พบข้อมูลอุปกรณ์ตามเงื่อนไขที่เลือก</td></tr>'; // 💥 FIX: colspan เหลือ 7
-} else {
-pageData.forEach(s => {
-const tr = document.createElement('tr');
-tr.className = 'border-t border-white/10 hover:bg-white/5 cursor-pointer'; 
-tr.innerHTML = `
-               <td class="text-left font-medium">${escapeHtml(s.device)}</td>
-               <td><span class="${s.count > 0 ? 'tag tag-bad' : 'tag tag-ok'}">${s.count} / ${s.remaining}</span></td> 
-			   <td>${s.brokenDate}</td>
-               <td>${s.fixedDate}</td>
-               <td><span class="${s.status.includes('ชำรุด') ? 'tag tag-bad' : 'tag tag-ok'}">${s.status}</span></td>
-               <td class="font-semibold text-center">${s.latestBrokenDuration}</td>
-               <td class="text-left text-sm text-gray-300 max-w-[200px] whitespace-normal">${escapeHtml(s.latestDescription || '-')}</td>
-           `;
-tr.addEventListener('click', () => window.openForm(s.device)); 
-tbody.appendChild(tr);
-});
-}
-
-// Pagination controls
-document.getElementById('pagination').innerHTML = `
-       <div class="flex justify-center items-center gap-2 mt-2">
-           <button class="btn" onclick="changePage(-1)" ${currentPage===1?'disabled':''}>⬅️ ก่อนหน้า</button>
-           <span>หน้า ${currentPage} / ${totalPages}</span>
-           <button class="btn" onclick="changePage(1)" ${currentPage===totalPages?'disabled':''}>ถัดไป ➡️</button>
-       </div>
-   `;
-
-updateChart(summary);
+    updateChart(summary);
 };
 
 
@@ -1183,115 +1171,109 @@ Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเช�
 * @param {Array} assetsToImport - อาร์เรย์ของ {deviceName, assetInfo}
 * @param {Array} recordsToImport - อาร์เรย์ของ {deviceName, record}
 */
+// 💥💥💥 FUNCTION: processAndSaveImport (แก้ไขตรรกะสถานะ) 💥💥💥
 async function processAndSaveImport(assetsToImport, recordsToImport) {
-Swal.fire({
-title: 'กำลังนำเข้า...',
-text: 'กำลังประมวลผลและบันทึกข้อมูล กรุณารอสักครู่...',
-allowOutsideClick: false,
-didOpen: () => { Swal.showLoading(); }
-});
+    Swal.fire({
+        title: 'กำลังนำเข้า...',
+        text: 'กำลังประมวลผลและบันทึกข้อมูล กรุณารอสักครู่...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-const batch = db.batch();
+    const batch = db.batch();
 
-// 1. จัดกลุ่มข้อมูลที่นำเข้าตาม deviceName
-const assetMap = new Map();
-for (const item of assetsToImport) {
-assetMap.set(item.deviceName, item.assetInfo);
+    // 1. จัดกลุ่มข้อมูล
+    const assetMap = new Map();
+    for (const item of assetsToImport) {
+        assetMap.set(item.deviceName, item.assetInfo);
+    }
+
+    const recordMap = new Map(); 
+    for (const item of recordsToImport) {
+        if (!recordMap.has(item.deviceName)) {
+            recordMap.set(item.deviceName, []);
+        }
+        recordMap.get(item.deviceName).push(item.record);
+    }
+
+    const allDeviceNames = new Set([
+        ...assetMap.keys(), 
+        ...recordMap.keys(), 
+        ...sites[currentSiteKey].devices
+    ]);
+
+    try {
+        const docsSnap = await getAllDevicesDocs(currentSiteKey);
+        const existingDataMap = new Map();
+        docsSnap.forEach(d => existingDataMap.set(d.id, d.data()));
+
+        for (const deviceName of allDeviceNames) {
+            if (!sites[currentSiteKey].devices.includes(deviceName)) continue;
+
+            const docRef = getSiteCollection(currentSiteKey).doc(deviceName);
+            const existingData = existingDataMap.get(deviceName) || {};
+
+            // A. Asset Info
+            let finalAssetInfo = existingData.assetInfo || {};
+            if (assetMap.has(deviceName)) {
+                finalAssetInfo = assetMap.get(deviceName);
+            }
+
+            // B. Records
+            const existingRecords = existingData.records || [];
+            const importedRecords = recordMap.get(deviceName) || [];
+
+            const finalRecordsMap = new Map();
+            for (const r of existingRecords) finalRecordsMap.set(r.ts, r);
+            for (const r of importedRecords) finalRecordsMap.set(r.ts, r);
+
+            const finalRecords = Array.from(finalRecordsMap.values());
+            finalRecords.sort((a, b) => a.ts - b.ts);
+
+            // C. คำนวณค่าสรุป (Logic ใหม่!)
+            // นับจำนวนครั้งที่ชำรุดทั้งหมด
+            const downCount = finalRecords.filter(r => r.counted).length; 
+            
+            // 💥 NEW LOGIC: ตรวจสอบรายการค้าง (Status "down" และไม่มี "fixedDate")
+            const remainingDownRecords = finalRecords.filter(r => r.status === 'down' && !r.fixedDate);
+            
+            let currentStatus = 'ok';
+            
+            if (remainingDownRecords.length > 0) {
+                // ถ้ามีรายการค้างอยู่ ให้สถานะเป็น down เสมอ แม้รายการล่าสุดจะเป็น ok ก็ตาม
+                currentStatus = 'down';
+            } else {
+                // ถ้าไม่มีรายการค้าง ให้ดูรายการล่าสุด
+                const latestRecord = finalRecords.length > 0 ? finalRecords[finalRecords.length - 1] : null;
+                currentStatus = latestRecord ? latestRecord.status : 'ok';
+            }
+
+            // D. Set Data
+            batch.set(docRef, {
+                assetInfo: finalAssetInfo,
+                records: finalRecords,
+                downCount: downCount,
+                currentStatus: currentStatus
+            }); 
+        }
+
+        await batch.commit();
+
+        window.updateDeviceSummary();
+        window.updateDeviceStatusOverlays(currentSiteKey);
+
+        Swal.fire({
+            title: 'นำเข้าสำเร็จ!',
+            text: `ประมวลผลข้อมูลเรียบร้อย (คำนวณสถานะคงเหลือใหม่แล้ว)`,
+            icon: 'success',
+            confirmButtonText: 'ตกลง'
+        });
+
+    } catch (error) {
+        console.error("Error processing import batch: ", error);
+        Swal.fire('ผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message, 'error');
+    }
 }
-
-const recordMap = new Map(); // Map<string, Record[]>
-for (const item of recordsToImport) {
-if (!recordMap.has(item.deviceName)) {
-recordMap.set(item.deviceName, []);
-}
-recordMap.get(item.deviceName).push(item.record);
-}
-
-// รวบรวม deviceName ทั้งหมด (ทั้งจาก excel และจาก config)
-const allDeviceNames = new Set([
-...assetMap.keys(), 
-...recordMap.keys(), 
-...sites[currentSiteKey].devices // รวมอุปกรณ์ที่มีอยู่เดิมด้วย
-]);
-
-try {
-// 2. ดึงข้อมูลเอกสาร *ทั้งหมด* ที่มีอยู่
-const docsSnap = await getAllDevicesDocs(currentSiteKey);
-const existingDataMap = new Map();
-docsSnap.forEach(d => existingDataMap.set(d.id, d.data()));
-
-// 3. วนลูป, ผสานข้อมูล, และเตรียม batch
-for (const deviceName of allDeviceNames) {
-
-// ข้ามถ้า deviceName นี้ไม่มีใน config ของ site ปัจจุบัน
-if (!sites[currentSiteKey].devices.includes(deviceName)) {
-continue;
-}
-
-const docRef = getSiteCollection(currentSiteKey).doc(deviceName);
-
-// ดึงข้อมูลเดิม (ถ้ามี)
-const existingData = existingDataMap.get(deviceName) || {};
-
-// A. ประมวลผล Asset Info (ข้อมูลใหม่ทับเก่า)
-let finalAssetInfo = existingData.assetInfo || {};
-if (assetMap.has(deviceName)) {
-finalAssetInfo = assetMap.get(deviceName); // ข้อมูลใหม่ (Import) ทับของเดิม
-}
-
-// B. ประมวลผล Records (ผสานและลบข้อมูลซ้ำ)
-const existingRecords = existingData.records || [];
-const importedRecords = recordMap.get(deviceName) || [];
-
-// ใช้ Map เพื่อลบข้อมูลซ้ำ (De-duplicate) โดยใช้ 'ts'
-const finalRecordsMap = new Map();
-// 1. ใส่ของเดิมเข้าไปก่อน
-for (const r of existingRecords) {
-finalRecordsMap.set(r.ts, r);
-}
-// 2. ใส่ของใหม่ (Import) ทับ (ถ้า ts ซ้ำ ของใหม่จะทับของเก่า)
-for (const r of importedRecords) {
-finalRecordsMap.set(r.ts, r);
-}
-
-const finalRecords = Array.from(finalRecordsMap.values());
-
-// C. คำนวณค่าสรุปใหม่
-finalRecords.sort((a, b) => a.ts - b.ts); // เรียงจากเก่าไปใหม่
-
-const latestRecord = finalRecords.length > 0 ? finalRecords[finalRecords.length - 1] : null;
-const downCount = finalRecords.filter(r => r.counted).length; // นับจาก `counted: true`
-const currentStatus = latestRecord ? latestRecord.status : 'ok';
-
-// D. เพิ่มเข้า Batch (เป็นการ Set ทับทั้งเอกสาร)
-batch.set(docRef, {
-assetInfo: finalAssetInfo,
-records: finalRecords,
-downCount: downCount,
-currentStatus: currentStatus
-}); // ไม่ต้องใช้ { merge: true } เพราะเราสร้าง object สมบูรณ์แล้ว
-}
-
-// 4. Commit
-await batch.commit();
-
-// 5. อัปเดต UI
-window.updateDeviceSummary();
-window.updateDeviceStatusOverlays(currentSiteKey);
-
-Swal.fire({
-title: 'นำเข้าสำเร็จ!',
-text: `ประมวลผลข้อมูล ${allDeviceNames.size} อุปกรณ์เรียบร้อย`,
-icon: 'success',
-confirmButtonText: 'ตกลง'
-});
-
-} catch (error) {
-console.error("Error processing import batch: ", error);
-Swal.fire('ผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message, 'error');
-}
-}
-
 
 // 💥💥💥 FUNCTION `importData` (แก้ไขตรรกะใหม่) 💥💥💥
 window.importData = function(event) {
@@ -1731,6 +1713,7 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 
 };
+
 
 
 
