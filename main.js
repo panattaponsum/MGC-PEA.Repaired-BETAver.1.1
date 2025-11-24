@@ -296,12 +296,8 @@ window.openForm = async function(deviceName) {
     document.getElementById('warrantyStatusDisplay').innerHTML = 'กำลังโหลด...';
     document.getElementById('assetInfoDisplay').innerHTML = '';
 
+    // 💥 เรียก clearForm ซึ่งจะตั้งค่าเป็น 'down' และล็อคปุ่มให้เองอัตโนมัติ
     clearForm(); 
-
-    // 💥 NEW LOGIC: บังคับสถานะเริ่มต้นสำหรับรายการใหม่ 💥
-    const statusSelect = document.getElementById('status');
-    statusSelect.value = 'down';   // บังคับเป็นชำรุด
-    statusSelect.disabled = true;  // 🔒 ล็อคห้ามแก้ไข (User จะเปลี่ยนเป็น ok ไม่ได้)
 
     await loadHistory(); 
 }
@@ -314,17 +310,26 @@ closeAssetModal(false);
 }
 
 function clearForm() {
-// 💥 MODIFIED: ไม่เคลียร์ userName ถ้าล็อคอินอยู่
-if (!currentUser) {
-document.getElementById('userName').value = 'ผู้เยี่ยมชม (อ่านอย่างเดียว)';
-} else {
-// 💥 FIX 1.1 (ซ้ำ): ใช้ email
-document.getElementById('userName').value = currentUser.email;
-}
-document.getElementById('status').value = 'ok';
-document.getElementById('brokenDate').value = '';
-document.getElementById('fixedDate').value = '';
-document.getElementById('description').value = '';
+    // Check Auth for userName
+    if (!currentUser) {
+        document.getElementById('userName').value = 'ผู้เยี่ยมชม (อ่านอย่างเดียว)';
+    } else {
+        document.getElementById('userName').value = currentUser.email;
+    }
+
+    const statusSelect = document.getElementById('status');
+    
+    // 💥 FIX: รีเซ็ตค่าเป็น 'down' (ชำรุด) เสมอ และสั่ง ล็อค (disabled) ทันที
+    statusSelect.value = 'down'; 
+    statusSelect.disabled = true; 
+
+    document.getElementById('brokenDate').value = '';
+    document.getElementById('fixedDate').value = '';
+    document.getElementById('description').value = '';
+    
+    // รีเซ็ต index การแก้ไข
+    editIndex = -1;
+    document.getElementById('editHint').classList.add('hidden');
 }
 
 function isValidDate(str) {
@@ -681,8 +686,8 @@ window.editRecord = async function(ts) {
     const statusSelect = document.getElementById('status');
     statusSelect.value = r.status || 'down';
     
-    // 💥 NEW LOGIC: ปลดล็อคสถานะเมื่อทำการแก้ไข 💥
-    statusSelect.disabled = false; // 🔓 อนุญาตให้เปลี่ยนสถานะได้ (เพื่อแก้เป็น ใช้งานได้)
+    // 💥 UNLOCK: ปลดล็อคเฉพาะตอนกดแก้ไขเท่านั้น
+    statusSelect.disabled = false; 
 
     document.getElementById('brokenDate').value = r.brokenDate || '';
     document.getElementById('fixedDate').value = r.fixedDate || '';
@@ -1682,6 +1687,7 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 
 };
+
 
 
 
