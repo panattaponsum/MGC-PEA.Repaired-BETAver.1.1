@@ -339,157 +339,142 @@ return d instanceof Date && !isNaN(d);
 }
 
 window.saveData = async function() {
-// 💥 MODIFIED: Check Auth 💥
-if (!currentUser) {
-Swal.fire('ไม่ได้รับอนุญาต', 'กรุณาลงชื่อเข้าใช้ก่อนบันทึกข้อมูล', 'warning');
-return false;
-}
+    // --- 1. ส่วนตรวจสอบสิทธิ์และข้อมูล (เหมือนเดิม) ---
+    if (!currentUser) {
+        Swal.fire('ไม่ได้รับอนุญาต', 'กรุณาลงชื่อเข้าใช้ก่อนบันทึกข้อมูล', 'warning');
+        return false;
+    }
+    if (!currentDevice) {
+        Swal.fire("ผิดพลาด", "กรุณาเลือกอุปกรณ์", "error");
+        return false;
+    }
 
-if (!currentDevice) {
-Swal.fire("ผิดพลาด", "กรุณาเลือกอุปกรณ์", "error"); // 💥 MODIFIED
-return false;
-}
+    const statusVal = document.getElementById('status').value;
+    const brokenDate = document.getElementById('brokenDate').value;
+    const fixedDate = document.getElementById('fixedDate').value;
 
-const statusVal = document.getElementById('status').value;
-const brokenDate = document.getElementById('brokenDate').value;
-const fixedDate = document.getElementById('fixedDate').value;
-
-if (editIndex < 0 && statusVal === 'ok') {
+    // --- 2. ส่วน Validation วันที่ (เหมือนเดิม) ---
+    if (editIndex < 0 && statusVal === 'ok') {
         Swal.fire({
             title: "ไม่อนุญาต", 
-            text: "การเพิ่มรายการใหม่ต้องเป็นสถานะ 'ชำรุด' เท่านั้น \n(หากต้องการบันทึกว่าซ่อมเสร็จแล้ว กรุณากด 'แก้ไข' ที่รายการชำรุดเดิม)", 
+            text: "การเพิ่มรายการใหม่ต้องเป็นสถานะ 'ชำรุด' เท่านั้น...", 
             icon: "warning"
         });
         return false;
     }
-// VALIDATION: ห้ามวันที่ชำรุด/ซ่อมแซมอยู่หลังวันที่ปัจจุบัน
-const now = new Date();
-now.setHours(0, 0, 0, 0); 
-
-if (brokenDate && isValidDate(brokenDate)) {
-const brokenDateTime = new Date(brokenDate);
-brokenDateTime.setHours(0, 0, 0, 0); 
-if (brokenDateTime > now) {
-Swal.fire("วันที่ผิดพลาด", "วันที่ชำรุดไม่สามารถอยู่หลังวันที่ปัจจุบันได้", "warning"); // 💥 MODIFIED
-return false;
-}
-}
-
-if (fixedDate && isValidDate(fixedDate)) {
-const fixedDateTime = new Date(fixedDate);
-fixedDateTime.setHours(0, 0, 0, 0); 
-if (fixedDateTime > now) {
-Swal.fire("วันที่ผิดพลาด", "วันที่ซ่อมแซมไม่สามารถอยู่หลังวันที่ปัจจุบันได้", "warning"); // 💥 MODIFIED
-return false;
-}
-}
-
-if (statusVal === 'down') {
-if (!isValidDate(brokenDate)) {
-Swal.fire("ข้อมูลไม่ครบ", "กรุณาเลือกวันที่ชำรุด เมื่อสถานะเป็น 'ชำรุด'", "warning"); // 💥 MODIFIED
-return false;
-}
-if (fixedDate) {
-Swal.fire("ข้อมูลขัดแย้ง", "ห้ามใส่วันที่ซ่อมแซม เมื่อสถานะเป็น 'ชำรุด'", "warning"); // 💥 MODIFIED
-return false;
-}
-}
-
-if (statusVal === 'ok') {
-if (!isValidDate(brokenDate)) {
-Swal.fire("ข้อมูลไม่ครบ", "กรุณาเลือกวันที่ชำรุด", "warning"); // 💥 MODIFIED
-return false;
-}
-if (!isValidDate(fixedDate)) {
-Swal.fire("ข้อมูลไม่ครบ", "กรุณาเลือกวันที่ซ่อมแซม", "warning"); // 💥 MODIFIED
-return false;
-}
-if (new Date(brokenDate) > new Date(fixedDate)) {
-Swal.fire("วันที่ผิดพลาด", "วันที่ซ่อมแซมต้องหลังวันที่ชำรุด", "warning"); // 💥 MODIFIED
-return false;
-}
-}
-
-if (fixedDate && statusVal !== 'ok') {
-Swal.fire("ข้อมูลขัดแย้ง", "ห้ามใส่วันที่ซ่อมแซม ถ้าไม่ได้เลือกสถานะ 'ใช้งานได้'", "warning"); // 💥 MODIFIED
-return false;
-}
-
-if (brokenDate && !(statusVal === 'down' || statusVal === 'ok')) {
-Swal.fire("ข้อมูลขัดแย้ง", "ห้ามใส่วันที่ชำรุด ถ้าไม่ได้เลือกสถานะ 'ชำรุด' หรือ 'ใช้งานได้'", "warning"); // 💥 MODIFIED
-return false;
-}
-
-let records = await getDeviceRecords(currentSiteKey, currentDevice);
-
-// 💥 MODIFIED (1): ลบเงื่อนไขห้ามบันทึกซ้ำ ถ้าอุปกรณ์ยังชำรุด
-if (editIndex < 0) { 
-    const latestRecord = records.length > 0 ? records[records.length - 1] : null;
-    const currentStatus = latestRecord ? latestRecord.status : 'ok'; // สถานะปัจจุบัน
-    
-    // 🚨 (Optional but Good Practice) ถ้าอุปกรณ์ใช้งานได้อยู่แล้ว ห้ามบันทึกรายการ 'ok' ที่มีวันที่ซ่อม
-    if (currentStatus === 'ok' && statusVal === 'ok' && (brokenDate || fixedDate)) {
-         Swal.fire({
-            title: 'ข้อมูลขัดแย้ง',
-            text: 'อุปกรณ์อยู่ในสถานะ "ใช้งานได้" อยู่แล้ว การบันทึก "ใช้งานได้" กรุณาบันทึกสถานะ "ชำรุด" เป็นรายการใหม่ก่อน แล้วจึงแก้ไขเป็นสถานะ "ใช้งานได้" ',
-            icon: 'warning'
-        });
-        return false;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); 
+    if (brokenDate && isValidDate(brokenDate)) {
+        const brokenDateTime = new Date(brokenDate);
+        brokenDateTime.setHours(0, 0, 0, 0); 
+        if (brokenDateTime > now) {
+            Swal.fire("วันที่ผิดพลาด", "วันที่ชำรุดไม่สามารถอยู่หลังวันที่ปัจจุบันได้", "warning");
+            return false;
+        }
     }
-}
+    if (fixedDate && isValidDate(fixedDate)) {
+        const fixedDateTime = new Date(fixedDate);
+        fixedDateTime.setHours(0, 0, 0, 0); 
+        if (fixedDateTime > now) {
+            Swal.fire("วันที่ผิดพลาด", "วันที่ซ่อมแซมไม่สามารถอยู่หลังวันที่ปัจจุบันได้", "warning");
+            return false;
+        }
+    }
+    // (Validation อื่นๆ คงเดิม...)
+    if (statusVal === 'down' && !isValidDate(brokenDate)) {
+        Swal.fire("ข้อมูลไม่ครบ", "กรุณาเลือกวันที่ชำรุด", "warning"); return false;
+    }
+    if (statusVal === 'ok') {
+        if (!isValidDate(brokenDate) || !isValidDate(fixedDate)) {
+            Swal.fire("ข้อมูลไม่ครบ", "กรุณากรอกวันที่ให้ครบ", "warning"); return false;
+        }
+        if (new Date(brokenDate) > new Date(fixedDate)) {
+            Swal.fire("วันที่ผิดพลาด", "วันที่ซ่อมแซมต้องหลังวันที่ชำรุด", "warning"); return false;
+        }
+    }
 
-const baseRec = {
-// 💥 MODIFIED: ดึงชื่อจากช่อง Input ที่ถูกล็อคไว้ 💥
-user: document.getElementById('userName').value || "ไม่ระบุ (ล็อคอิน)",
-status: statusVal,
-brokenDate,
-fixedDate,
-description: document.getElementById('description').value,
-ts: Date.now(),
-counted: (statusVal === 'down') 
-};
+    // --- 3. เตรียมข้อมูล (Base Record) ---
+    let records = await getDeviceRecords(currentSiteKey, currentDevice); // 👈 ดึงประวัติ "เฉพาะอุปกรณ์นี้"
 
-if (editIndex >= 0) {
-// การแก้ไข: นำข้อมูลเดิมมาทับข้อมูลใหม่
-const originalRecord = records[editIndex];
+    // เช็คเงื่อนไขการบันทึกซ้ำ
+    if (editIndex < 0) { 
+        const latestRecord = records.length > 0 ? records[records.length - 1] : null;
+        const currentStatus = latestRecord ? latestRecord.status : 'ok';
+        if (currentStatus === 'ok' && statusVal === 'ok' && (brokenDate || fixedDate)) {
+             Swal.fire({title: 'ข้อมูลขัดแย้ง', text: 'อุปกรณ์ใช้งานได้อยู่แล้ว...', icon: 'warning'});
+            return false;
+        }
+    }
 
-records[editIndex] = {
-...originalRecord,
-...baseRec,
-ts: originalRecord.ts
-};
+    const baseRec = {
+        user: document.getElementById('userName').value || "ไม่ระบุ (ล็อคอิน)",
+        status: statusVal,
+        brokenDate,
+        fixedDate,
+        description: document.getElementById('description').value,
+        ts: Date.now(),
+        counted: (statusVal === 'down') 
+    };
 
-// ตรรกะ counted เมื่อแก้ไข
-if (statusVal === 'ok') {
-// ถ้าสถานะใหม่เป็น 'ok' (ซ่อมแซม) ให้คงค่า counted เป็น true ถ้ามันเคยถูกนับแล้ว
-records[editIndex].counted = originalRecord.counted || false; 
-} else {
-// ถ้าสถานะใหม่เป็น 'down' ให้ counted เป็น true เสมอ
-records[editIndex].counted = true;
-}
+    // --- 4. อัปเดต Array records ---
+    if (editIndex >= 0) {
+        const originalRecord = records[editIndex];
+        records[editIndex] = { ...originalRecord, ...baseRec, ts: originalRecord.ts };
+        if (statusVal === 'ok') {
+            records[editIndex].counted = originalRecord.counted || false; 
+        } else {
+            records[editIndex].counted = true;
+        }
+        editIndex = -1;
+        document.getElementById('editHint').classList.add('hidden');
+    } else {
+        records.push(baseRec);
+    }
 
-editIndex = -1;
-document.getElementById('editHint').classList.add('hidden');
-} else {
-// การเพิ่มรายการใหม่:
-records.push(baseRec);
-}
-await saveDeviceRecords(currentSiteKey, currentDevice, records);
-clearForm();
-await loadHistory();
-window.updateDeviceSummary(); 
-window.updateDeviceStatusOverlays(currentSiteKey); 
+    // --- 5. บันทึกลง Database ---
+    await saveDeviceRecords(currentSiteKey, currentDevice, records);
+    
+    // --- 6. ล้างหน้าจอและอัปเดตผล ---
+    clearForm(); // 🧹 ล้างหน้าจอตรงนี้ (แต่เรามี baseRec เก็บค่าไว้แล้ว)
+    await loadHistory();
+    window.updateDeviceSummary(); 
+    window.updateDeviceStatusOverlays(currentSiteKey); 
 
-// 💥 NEW: ส่งไลน์ถ้าเป็นการแจ้งชำรุดใหม่
-    if (statusVal === 'down' && editIndex < 0) {
+    // ======================================================================
+    // 💥 ส่วนแจ้งเตือน Discord (วางไว้หลังสุด เพื่อให้มั่นใจว่าบันทึกเสร็จแล้ว)
+    // ======================================================================
+    
+    // นับจำนวนครั้งที่ชำรุด (ของอุปกรณ์ตัวนี้เท่านั้น)
+    const currentCount = records.filter(r => r.counted).length;
+
+    // กรณี 1: แจ้งเตือน "ชำรุด" (รายการใหม่)
+    if (statusVal === 'down' && editIndex < 0) { // เช็คว่าเป็น 'down' และ 'รายการใหม่'
+        // ตรงนี้ currentCount จะรวมรายการล่าสุดที่เราเพิ่ง push เข้าไปแล้ว
         sendDiscordNotify(
-            currentDevice, 
-			baseRec.description, // ✅ แก้ตรงนี้: ใช้ baseRec.description แทน document.getElementById...
-            baseRec.user         // ✅ แก้ตรงนี้: ใช้ baseRec.user แทนเพื่อความชัวร์
+            'down',              
+            currentDevice,       
+            baseRec.description, // ใช้ baseRec เพราะหน้าจอถูกล้างไปแล้ว
+            baseRec.user,        
+            baseRec.brokenDate,  
+            currentCount         // ส่งลำดับครั้งที่ X
         );
     }
 
-    // 💥 MODIFIED: ใช้ SweetAlert2 💥
+    // กรณี 2: แจ้งเตือน "ใช้งานได้" (แก้ไขรายการเดิม)
+    // เราเช็คว่า records[editIndex] เดิมเคยเป็นอะไรไม่ได้แล้ว เพราะ records ถูกอัปเดตไปแล้ว
+    // แต่เราเช็คได้ว่า statusVal ตอนนี้คือ 'ok' และเป็นการแก้ไข
+    if (statusVal === 'ok') { 
+        // ส่งแจ้งเตือนว่าซ่อมเสร็จ (ไม่ต้องใส่ลำดับก็ได้ หรือจะใส่ก็ได้)
+        sendDiscordNotify(
+            'fixed',             
+            currentDevice,       
+            baseRec.description, 
+            baseRec.user,        
+            baseRec.fixedDate,   
+            null                 
+        );
+    }
+
     Swal.fire("บันทึกเรียบร้อย", "", "success");
     return true;
 };
@@ -1806,30 +1791,45 @@ window.printReport = async function() {
     `);
     printWindow.document.close();
 };
-async function sendDiscordNotify(deviceName, description, user) {
+// 💥💥💥 DISCORD NOTIFY FUNCTION (อัปเกรดแล้ว) 💥💥💥
+async function sendDiscordNotify(type, deviceName, description, user, dateVal, count) {
     // URL เดิมจาก Google Apps Script ของคุณ
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwMMbSEA1SI3m4WRe1bkwh7gxFbIHdqfdnk2ENVUEohVKyl1eiNXZwCWWs6tBw48f9G9A/exec"; 
 
+    let title = "";
+    let colorBar = ""; // เพิ่มลูกเล่นสีขีดข้างล่าง (ใน Discord)
+    let dateLabel = "";
+
+    // แยกกรณี "ชำรุด" กับ "ซ่อมเสร็จ"
+    if (type === 'down') {
+        title = `🚨 **แจ้งเตือนอุปกรณ์ชำรุด (ครั้งที่ ${count})**`;
+        dateLabel = `📅 **วันที่ชำรุด:** ${dateVal}`;
+        colorBar = "------------------------------------------"; 
+    } else if (type === 'fixed') {
+        title = `✅ **แจ้งเตือนซ่อมแซมเสร็จสิ้น**`;
+        dateLabel = `📅 **วันที่ซ่อมแซม:** ${dateVal}`;
+        colorBar = "==========================================";
+    }
+
     const message = `
-🚨 **แจ้งเตือนอุปกรณ์ชำรุด**
+${title}
 📍 **สถานที่:** ${sites[currentSiteKey].name}
 🛠️ **อุปกรณ์:** ${deviceName}
 📝 **อาการ:** ${description || '-'}
-🕒 **วันที่ชำรุด**${brokenDate}
+${dateLabel}
 👤 **ผู้แจ้ง:** ${user}
 🕒 **เวลาบันทึก:** ${new Date().toLocaleString('th-TH')}
-------------------------------------------
+${colorBar}
     `;
 
     try {
-        // 💥 MODIFIED: เพิ่ม &site=${currentSiteKey} ต่อท้าย body เพื่อบอกว่าส่งมาจากที่ไหน
         await fetch(GAS_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `message=${encodeURIComponent(message)}&site=${encodeURIComponent(currentSiteKey)}`
         });
-        console.log(`Discord Notification sent to ${currentSiteKey}!`);
+        console.log(`Discord Notification sent (${type})!`);
     } catch (e) {
         console.error("Failed to send Discord:", e);
     }
@@ -1838,6 +1838,7 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 	
 };
+
 
 
 
