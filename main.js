@@ -484,8 +484,6 @@ window.updateDeviceStatusOverlays(currentSiteKey);
     if (statusVal === 'down' && editIndex < 0) {
         sendDiscordNotify(
             currentDevice, 
-            document.getElementById('description').value, 
-            document.getElementById('userName').value
 			baseRec.description, // ✅ แก้ตรงนี้: ใช้ baseRec.description แทน document.getElementById...
             baseRec.user         // ✅ แก้ตรงนี้: ใช้ baseRec.user แทนเพื่อความชัวร์
         );
@@ -1840,6 +1838,7 @@ window.onload = function() {
 try { imageMapResize(); } catch (e) {}
 	
 };
+
 
 
 
